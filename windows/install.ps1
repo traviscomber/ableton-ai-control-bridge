@@ -46,6 +46,9 @@ if ($sourceFull -ine $targetFull) {
         "ableton_bridge/transport.py",
         "tests/test_commands.py",
         "tests/test_v02.py",
+        "windows/doctor.ps1",
+        "windows/start-bridge.ps1",
+        "windows/open-device-source.ps1",
         "pyproject.toml"
     )
     foreach ($relative in $repairFiles) {
