@@ -119,7 +119,7 @@ def make_handler(state: BridgeState) -> type[BaseHTTPRequestHandler]:
             if parsed.path == "/health":
                 self._send_json(200, {
                     "ok": True,
-                    "version": "0.4.1",
+                    "version": "0.4.2",
                     "dry_run": state.dry_run,
                     "approval_required": state.require_approval,
                     "authentication_required": bool(state.policy.token),
@@ -137,6 +137,16 @@ def make_handler(state: BridgeState) -> type[BaseHTTPRequestHandler]:
                 status = query.get("status", [None])[0]
                 limit = int(query.get("limit", ["100"])[0])
                 self._send_json(200, {"ok": True, "commands": state.store.list(status=status, limit=limit)})
+                return
+            parts = parsed.path.strip("/").split("/")
+            if len(parts) == 3 and parts[:2] == ["api", "commands"]:
+                if not self._authorized():
+                    return
+                record = state.store.get(parts[2])
+                if not record:
+                    self._send_json(404, {"ok": False, "error": "Command not found"})
+                    return
+                self._send_json(200, {"ok": True, "command": record})
                 return
             self._send_json(404, {"ok": False, "error": "Not found"})
 
@@ -271,7 +281,7 @@ def main() -> None:
     if not args.dry_run:
         threading.Thread(target=state.receive_acknowledgements, daemon=True).start()
     server = ThreadingHTTPServer((args.host, args.port), make_handler(state))
-    print(f"Ableton AI Control Bridge v0.4.1 listening on http://{args.host}:{args.port}")
+    print(f"Ableton AI Control Bridge v0.4.2 listening on http://{args.host}:{args.port}")
     print(f"UDP target={args.udp_host}:{args.udp_port} ack={args.ack_host}:{args.ack_port}")
     print(f"dry_run={args.dry_run} approval={args.require_approval} auth={bool(args.token)}")
     server.serve_forever()
