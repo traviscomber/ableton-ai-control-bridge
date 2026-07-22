@@ -65,6 +65,8 @@ Set-ExecutionPolicy -Scope Process Bypass
 Después sigue la guía específica: [`docs/windows-live11.md`](docs/windows-live11.md).
 Al finalizar tendrás tres launchers de doble clic: `START BRIDGE.cmd`,
 `CHECK INSTALLATION.cmd` y `OPEN MAX DEVICE SOURCE.cmd`.
+Si Python no está instalado, el script intenta instalar Python 3.12
+automáticamente mediante `winget`.
 
 ### macOS o Linux
 
