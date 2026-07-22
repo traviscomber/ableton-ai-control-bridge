@@ -9,7 +9,7 @@ from http.server import ThreadingHTTPServer
 
 from ableton_bridge.runner import iter_jsonl
 from ableton_bridge.security import AccessPolicy
-from ableton_bridge.server import BridgeState, make_handler
+from ableton_bridge.server import BridgeState, load_config, make_handler
 from ableton_bridge.store import CommandStore
 
 
@@ -109,6 +109,17 @@ class VersionTwoTest(unittest.TestCase):
         finally:
             server.shutdown()
             server.server_close()
+
+    def test_windows_powershell_bom_config(self):
+        handle, path = tempfile.mkstemp(suffix=".json")
+        try:
+            with os.fdopen(handle, "wb") as stream:
+                stream.write(b"\xef\xbb\xbf{\"port\":8765,\"require_approval\":true}")
+            config = load_config(path)
+            self.assertEqual(config["port"], 8765)
+            self.assertTrue(config["require_approval"])
+        finally:
+            os.unlink(path)
 
 
 if __name__ == "__main__":
