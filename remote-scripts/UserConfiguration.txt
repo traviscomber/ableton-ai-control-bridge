@@ -1,0 +1,46 @@
+# Ableton AI Control Bridge - supported User Remote Script template
+# Copy this folder under Live's Preferences/User Remote Scripts and edit
+# the CC assignments for the virtual MIDI port used by your bridge.
+
+[Globals]
+GlobalChannel: 0
+InputName: Ableton AI Bridge
+OutputName: Ableton AI Bridge
+
+[DeviceControls]
+Encoder1: 20
+Encoder2: 21
+Encoder3: 22
+Encoder4: 23
+Encoder5: 24
+Encoder6: 25
+Encoder7: 26
+Encoder8: 27
+EncoderMapMode: Absolute
+
+[MixerControls]
+VolumeSlider1: 30
+VolumeSlider2: 31
+VolumeSlider3: 32
+VolumeSlider4: 33
+VolumeSlider5: 34
+VolumeSlider6: 35
+VolumeSlider7: 36
+VolumeSlider8: 37
+MasterVolumeSlider: 38
+TrackArmButton1: 40
+TrackArmButton2: 41
+TrackArmButton3: 42
+TrackArmButton4: 43
+TrackArmButton5: 44
+TrackArmButton6: 45
+TrackArmButton7: 46
+TrackArmButton8: 47
+
+[TransportControls]
+StopButton: 50
+PlayButton: 51
+RecButton: 52
+LoopButton: 53
+RwdButton: 54
+FfwdButton: 55
