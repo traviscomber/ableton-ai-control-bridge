@@ -2,6 +2,7 @@ import os
 import json
 import tempfile
 import threading
+import time
 import unittest
 import urllib.error
 import urllib.request
@@ -32,8 +33,16 @@ class VersionTwoTest(unittest.TestCase):
         self.transport = FakeTransport()
 
     def tearDown(self):
-        if os.path.exists(self.database):
-            os.unlink(self.database)
+        # Antivirus/indexing can briefly retain a released handle on Windows.
+        for attempt in range(10):
+            try:
+                if os.path.exists(self.database):
+                    os.unlink(self.database)
+                break
+            except PermissionError:
+                if attempt == 9:
+                    raise
+                time.sleep(0.05)
 
     def state(self, **kwargs):
         return BridgeState(
