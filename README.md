@@ -29,7 +29,7 @@ Cada acción se representa como JSON legible. El objetivo no es generar archivos
 
 ## Estado actual
 
-**MVP / versión 0.1.0.**
+**Beta técnica / versión 0.2.0.**
 
 | Componente | Estado |
 | --- | --- |
@@ -39,10 +39,10 @@ Cada acción se representa como JSON legible. El objetivo no es generar archivos
 | CLI para enviar comandos | Funcional |
 | Modo de simulación (`--dry-run`) | Funcional |
 | Pruebas unitarias | Incluidas |
-| Receptor Max for Live | Especificado en una guía de construcción |
+| Receptor Max for Live | Fuente `.maxpat` y motor LiveAPI incluidos |
 | Dispositivo `.amxd` listo para instalar | Pendiente |
 
-> El bridge Python se puede ejecutar y probar ahora. Para que los comandos modifiquen Ableton, todavía es necesario construir y guardar `AI Control Bridge Receiver.amxd` en Ableton/Max siguiendo [`max-for-live/device-build-guide.md`](max-for-live/device-build-guide.md).
+> El bridge Python y el source del receptor están disponibles. Max for Live debe abrir el `.maxpat` y guardarlo como `AI Control Bridge Receiver.amxd`; un `.amxd` válido no puede generarse ni verificarse fuera de Max. Sigue [`max-for-live/device-build-guide.md`](max-for-live/device-build-guide.md).
 
 ## Requisitos
 
@@ -78,7 +78,7 @@ python -m pip install -e .
 Ejecuta el servidor:
 
 ```bash
-python -m ableton_bridge.server
+python -m ableton_bridge.server --token "change-this-token" --require-approval
 ```
 
 Por defecto abre el endpoint HTTP local:
@@ -113,7 +113,7 @@ Respuesta esperada:
 
 ## Probar sin Ableton
 
-El modo `dry-run` valida y contabiliza comandos, pero no los envía por UDP. Es la forma recomendada de probar integraciones de IA antes de permitir que controlen una sesión real.
+El modo `dry-run` valida, registra y contabiliza comandos, pero no los envía por UDP. Es la forma recomendada de probar integraciones de IA antes de permitir que controlen una sesión real.
 
 ```bash
 python -m ableton_bridge.server --dry-run
@@ -131,13 +131,10 @@ El servidor responderá con HTTP `202` e indicará `"forwarded": false`.
 
 ## Conectar Ableton Live
 
-1. Abre Ableton Live y Max for Live.
-2. Crea un nuevo Max MIDI Effect.
-3. Configura un receptor UDP en el puerto `9001`.
-4. Deserializa el JSON y enruta cada valor de `type`.
-5. Conecta cada comando con su destino correspondiente en la Live API.
-6. Guarda el dispositivo como `AI Control Bridge Receiver.amxd`.
-7. Colócalo en una pista de la sesión y deja el bridge Python ejecutándose.
+1. Abre `max-for-live/AI-Control-Bridge-Receiver.maxpat` desde Max for Live.
+2. Verifica que encuentre `bridge_receiver.js`.
+3. Guárdalo como `AI Control Bridge Receiver.amxd` o congela el dispositivo.
+4. Colócalo en una pista y deja el bridge Python ejecutándose.
 
 La lista de objetos Max, rutas de la Live API y orden recomendado de implementación está en [`max-for-live/device-build-guide.md`](max-for-live/device-build-guide.md).
 
@@ -156,19 +153,19 @@ curl -X POST http://127.0.0.1:8765/command \
 Después de instalar el proyecto con `pip install -e .`:
 
 ```bash
-ableton-bridge-send '{"type":"set_tempo","bpm":132}'
+ableton-bridge-send --token "change-this-token" '{"type":"set_tempo","bpm":132}'
 ```
 
 También puedes utilizar directamente el módulo Python:
 
 ```bash
-python -m ableton_bridge.cli '{"type":"set_macro","track":1,"macro":1,"value":0.8}'
+python -m ableton_bridge.cli --token "change-this-token" '{"type":"set_macro","track":1,"macro":1,"value":0.8}'
 ```
 
 ### Desde un archivo JSON
 
 ```bash
-ableton-bridge-send examples/commands/create_bass_clip.json
+ableton-bridge-send --token "change-this-token" examples/commands/create_bass_clip.json
 ```
 
 ## Comandos soportados
@@ -237,6 +234,40 @@ Antes de ejecutar comandos generados automáticamente en una sesión importante:
 
 Consulta [`examples/commands/neon_basement_ritual.jsonl`](examples/commands/neon_basement_ritual.jsonl) para ver una secuencia de ejemplo.
 
+## Runner JSONL
+
+Valida una secuencia completa sin enviarla:
+
+```bash
+ableton-bridge-run examples/commands/neon_basement_ritual.jsonl --validate-only
+```
+
+Envíala con autenticación y una pausa entre comandos:
+
+```bash
+ableton-bridge-run examples/commands/neon_basement_ritual.jsonl \
+  --token "change-this-token" --delay 0.25
+```
+
+## Autorización, aprobación e historial
+
+Inicio recomendado:
+
+```bash
+python -m ableton_bridge.server \
+  --token "change-this-token" \
+  --allow set_tempo,launch_scene,set_track_volume,set_macro \
+  --require-approval
+```
+
+- `--token` o `ABLETON_BRIDGE_TOKEN` protege los endpoints de escritura y el historial.
+- `--allow` limita los tipos de comando aceptados durante la sesión.
+- `--require-approval` coloca las órdenes en una cola antes de enviarlas.
+- `http://127.0.0.1:8765` abre la interfaz de aprobación e historial.
+- SQLite conserva payload, origen, timestamps, estado, resultado y errores.
+- Max devuelve confirmaciones; el estado pasa a `acknowledged` o `error`.
+- La UI permite solicitar `undo` para órdenes enviadas o confirmadas.
+
 ## Configuración del servidor
 
 ```bash
@@ -244,7 +275,9 @@ python -m ableton_bridge.server \
   --host 127.0.0.1 \
   --port 8765 \
   --udp-host 127.0.0.1 \
-  --udp-port 9001
+  --udp-port 9001 \
+  --ack-port 9002 \
+  --database .ableton-bridge/history.sqlite3
 ```
 
 | Opción | Valor predeterminado | Descripción |
@@ -253,6 +286,12 @@ python -m ableton_bridge.server \
 | `--port` | `8765` | Puerto HTTP |
 | `--udp-host` | `127.0.0.1` | Dirección del receptor Max for Live |
 | `--udp-port` | `9001` | Puerto UDP del receptor |
+| `--ack-host` | `127.0.0.1` | Interfaz para confirmaciones de Max |
+| `--ack-port` | `9002` | Puerto UDP de confirmaciones |
+| `--database` | `.ableton-bridge/history.sqlite3` | Historial SQLite |
+| `--token` | Variable `ABLETON_BRIDGE_TOKEN` | Token local opcional |
+| `--allow` | Todos | Allowlist separada por comas |
+| `--require-approval` | Desactivado | Requiere aprobación desde la UI/API |
 | `--dry-run` | Desactivado | Valida sin enviar UDP |
 
 ## API HTTP
@@ -265,7 +304,7 @@ Informa si el servidor está activo, el modo de ejecución, el destino UDP y el 
 
 Recibe un único objeto JSON. Si el comando es válido, responde con HTTP `202`. Si el JSON o sus valores no cumplen el protocolo, responde con HTTP `400` y una explicación.
 
-El MVP no implementa autenticación, CORS, TLS, colas persistentes ni historial de comandos.
+La versión 0.2 incorpora autenticación local, cola de aprobación e historial persistente. No implementa TLS ni está diseñada como servicio público.
 
 ## Seguridad
 
@@ -297,31 +336,28 @@ ableton-ai-control-bridge/
 │   ├── local-setup.md     # Configuración local resumida
 │   └── protocol.md        # Referencia de comandos
 ├── examples/commands/     # Comandos JSON y secuencias JSONL
-├── max-for-live/          # Guía del receptor y rutas Live API
+├── max-for-live/          # Patch fuente, JavaScript LiveAPI y guía de build
+├── remote-scripts/        # Alternativa limitada mediante MIDI CC
 ├── tests/                 # Pruebas unitarias
 └── pyproject.toml         # Metadatos e instalación del paquete
 ```
 
 ## Limitaciones conocidas
 
-- El repositorio todavía no contiene un `.amxd` compilado/listo para instalar.
-- La guía de Max for Live prioriza primero tempo, escenas, stop, volumen y macros; los comandos avanzados requieren completar sus mappings en Max.
-- Cada petición HTTP acepta un comando; una secuencia JSONL debe enviarse línea por línea.
-- UDP no confirma recepción ni ejecución dentro de Ableton.
-- El estado del bridge vive en memoria y se reinicia al cerrar el servidor.
+- El repositorio no contiene un `.amxd` guardado por Max; incluye el `.maxpat` editable y todos los mappings.
+- El receptor debe validarse dentro de Ableton Live/Max for Live; CI no puede ejecutar la Live API.
+- UDP no garantiza entrega; el ack confirma ejecución cuando llega, pero la versión actual todavía no marca timeout cuando falta.
+- El runner envía JSONL línea por línea y no implementa rollback transaccional de una secuencia completa.
 - El servidor está pensado para uso local y confiable, no como API pública.
 
 ## Próximos pasos sugeridos
 
-- Publicar `AI Control Bridge Receiver.amxd` listo para instalar.
-- Completar el mapping Max for Live de todos los comandos declarados.
-- Añadir confirmaciones Ableton → bridge y manejo de errores de ejecución.
-- Crear un runner nativo para archivos JSONL.
-- Incorporar autorización local y listas de comandos permitidos por sesión.
-- Añadir logs, historial, undo y una interfaz visual de aprobación.
-- Investigar soporte mediante Ableton Remote Scripts como segunda vía de integración.
+- Abrir el source en Max for Live, ejecutar el checklist y publicar el `.amxd` congelado.
+- Añadir reintentos y timeout explícito para confirmaciones que nunca llegan.
+- Añadir rollback de secuencias JSONL y agrupación de comandos por sesión.
+- Incorporar un transporte MIDI opcional para el subset de [`UserConfiguration.txt`](remote-scripts/UserConfiguration.txt).
+- Empaquetar la UI como aplicación de escritorio local.
 
 ## Licencia
 
 Este proyecto se distribuye bajo la licencia incluida en [`LICENSE`](LICENSE).
-
