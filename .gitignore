@@ -7,4 +7,4 @@ build/
 *.egg-info/
 .pytest_cache/
 *.log
-
+.ableton-bridge/
