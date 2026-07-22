@@ -19,14 +19,14 @@ COMMANDS: dict[str, CommandSpec] = {
     "set_tempo": CommandSpec("set_tempo", ("bpm",)),
     "launch_scene": CommandSpec("launch_scene", ("scene",)),
     "stop_all_clips": CommandSpec("stop_all_clips", ()),
-    "set_track_volume": CommandSpec("set_track_volume", ("track", "volume")),
-    "set_track_pan": CommandSpec("set_track_pan", ("track", "pan")),
-    "set_macro": CommandSpec("set_macro", ("track", "macro", "value")),
-    "create_midi_clip": CommandSpec("create_midi_clip", ("track", "clip", "bar", "beats", "notes")),
-    "create_audio_track": CommandSpec("create_audio_track", ("name",), ("index",)),
-    "create_midi_track": CommandSpec("create_midi_track", ("name",), ("index",)),
-    "arm_track": CommandSpec("arm_track", ("track", "armed")),
-    "set_device_parameter": CommandSpec("set_device_parameter", ("track", "device", "parameter", "value")),
+    "set_track_volume": CommandSpec("set_track_volume", ("volume",), ("track", "track_ref")),
+    "set_track_pan": CommandSpec("set_track_pan", ("pan",), ("track", "track_ref")),
+    "set_macro": CommandSpec("set_macro", ("macro", "value"), ("track", "track_ref")),
+    "create_midi_clip": CommandSpec("create_midi_clip", ("clip", "bar", "beats", "notes"), ("track", "track_ref")),
+    "create_audio_track": CommandSpec("create_audio_track", ("name",), ("index", "track_ref")),
+    "create_midi_track": CommandSpec("create_midi_track", ("name",), ("index", "track_ref")),
+    "arm_track": CommandSpec("arm_track", ("armed",), ("track", "track_ref")),
+    "set_device_parameter": CommandSpec("set_device_parameter", ("device", "parameter", "value"), ("track", "track_ref")),
     "start_playback": CommandSpec("start_playback", ()),
     "stop_playback": CommandSpec("stop_playback", ()),
     "set_time_signature": CommandSpec("set_time_signature", ("numerator", "denominator")),
@@ -35,15 +35,22 @@ COMMANDS: dict[str, CommandSpec] = {
     "create_scene": CommandSpec("create_scene", (), ("name", "index")),
     "duplicate_scene": CommandSpec("duplicate_scene", ("scene",)),
     "delete_scene": CommandSpec("delete_scene", ("scene",)),
-    "duplicate_track": CommandSpec("duplicate_track", ("track",)),
-    "delete_track": CommandSpec("delete_track", ("track",)),
-    "set_track_mute": CommandSpec("set_track_mute", ("track", "muted")),
-    "set_track_solo": CommandSpec("set_track_solo", ("track", "soloed")),
-    "launch_clip": CommandSpec("launch_clip", ("track", "clip")),
-    "stop_track_clips": CommandSpec("stop_track_clips", ("track",)),
-    "set_clip_name": CommandSpec("set_clip_name", ("track", "clip", "name")),
-    "set_clip_color": CommandSpec("set_clip_color", ("track", "clip", "color")),
-    "set_clip_loop": CommandSpec("set_clip_loop", ("track", "clip", "start", "length", "enabled")),
+    "duplicate_track": CommandSpec("duplicate_track", (), ("track", "track_ref")),
+    "delete_track": CommandSpec("delete_track", (), ("track", "track_ref")),
+    "set_track_mute": CommandSpec("set_track_mute", ("muted",), ("track", "track_ref")),
+    "set_track_solo": CommandSpec("set_track_solo", ("soloed",), ("track", "track_ref")),
+    "launch_clip": CommandSpec("launch_clip", ("clip",), ("track", "track_ref")),
+    "stop_track_clips": CommandSpec("stop_track_clips", (), ("track", "track_ref")),
+    "set_clip_name": CommandSpec("set_clip_name", ("clip", "name"), ("track", "track_ref")),
+    "set_clip_color": CommandSpec("set_clip_color", ("clip", "color"), ("track", "track_ref")),
+    "set_clip_loop": CommandSpec("set_clip_loop", ("clip", "start", "length", "enabled"), ("track", "track_ref")),
+}
+
+TRACK_TARGET_COMMANDS = {
+    "set_track_volume", "set_track_pan", "set_macro", "create_midi_clip",
+    "arm_track", "set_device_parameter", "duplicate_track", "delete_track",
+    "set_track_mute", "set_track_solo", "launch_clip", "stop_track_clips",
+    "set_clip_name", "set_clip_color", "set_clip_loop",
 }
 
 
@@ -68,6 +75,11 @@ def validate_command(payload: dict[str, Any]) -> dict[str, Any]:
     if extra:
         raise CommandError(f"Unsupported field(s) for {command_type}: {', '.join(extra)}")
 
+    if command_type in TRACK_TARGET_COMMANDS:
+        targets = int("track" in payload) + int("track_ref" in payload)
+        if targets != 1:
+            raise CommandError("Provide exactly one of track or track_ref.")
+
     _validate_ranges(payload)
     return payload
 
@@ -84,6 +96,11 @@ def _validate_ranges(payload: dict[str, Any]) -> None:
         track = payload["track"]
         if not isinstance(track, int) or track < 0:
             raise CommandError("track must be a zero-based integer.")
+
+    if "track_ref" in payload and (
+        not isinstance(payload["track_ref"], str) or not payload["track_ref"].strip()
+    ):
+        raise CommandError("track_ref must be a non-empty string.")
 
     if command_type == "launch_scene":
         scene = payload["scene"]
@@ -131,6 +148,10 @@ def _validate_ranges(payload: dict[str, Any]) -> None:
             not isinstance(payload["index"], int) or payload["index"] < 0
         ):
             raise CommandError("index must be a zero-based integer.")
+        if "track_ref" in payload and (
+            not isinstance(payload["track_ref"], str) or not payload["track_ref"].strip()
+        ):
+            raise CommandError("track_ref must be a non-empty string.")
 
     if command_type == "arm_track" and not isinstance(payload["armed"], bool):
         raise CommandError("armed must be a boolean.")
