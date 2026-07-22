@@ -12,7 +12,10 @@ class UdpTransport:
     port: int = 9001
 
     def send(self, payload: dict[str, Any]) -> None:
-        message = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        # Max udpreceive uses Max/FUDI-style messages terminated by a semicolon.
+        # Compact JSON contains no unescaped whitespace outside string values and
+        # is reconstructed by `tosymbol` before `dict.deserialize`.
+        message = (json.dumps(payload, separators=(",", ":")) + ";").encode("utf-8")
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
             sock.sendto(message, (self.host, self.port))
 
@@ -32,5 +35,8 @@ class AckListener:
                 raw, _ = sock.recvfrom(65535)
             except socket.timeout:
                 return None
-        payload = json.loads(raw.decode("utf-8"))
+        text = raw.decode("utf-8").strip().rstrip(";").strip()
+        if text.startswith("symbol "):
+            text = text[7:]
+        payload = json.loads(text)
         return payload if isinstance(payload, dict) else None
