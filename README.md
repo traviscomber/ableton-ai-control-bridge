@@ -29,13 +29,15 @@ Cada acción se representa como JSON legible. El objetivo no es generar archivos
 
 ## Estado actual
 
-**Beta técnica / versión 0.4.1, optimizada para Windows + Live 11.**
+**Beta técnica / versión 0.4.2, optimizada para Windows + Live 11.**
 
 La v0.4 amplía el bridge de control a **composición de canciones por escenas**:
 transporte, compás, metrónomo, loops, escenas, pistas, clips, mezcla, nombres y
 colores pueden combinarse con la creación de notas MIDI en planes JSONL revisables.
 La revisión 0.4.1 añade referencias estables `track_ref`: Darksco agrega sus
 pistas al final del Set sin desplazar ni desconectar el receptor Max for Live.
+La revisión 0.4.2 añade ejecución secuencial por ACK para que Live termine cada
+operación antes de recibir la siguiente.
 
 | Componente | Estado |
 | --- | --- |
@@ -256,7 +258,7 @@ enviado y sigue respetando el token y la allowlist:
 
 ```powershell
 $token = (Get-Content .\config.json | ConvertFrom-Json).token
-ableton-bridge-run examples/darksco/first-autonomous-track.jsonl --token $token --auto-approve --delay 0.15
+ableton-bridge-run examples/darksco/first-autonomous-track.jsonl --token $token --wait-ack
 ```
 
 ## Integración con una IA
