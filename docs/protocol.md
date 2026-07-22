@@ -151,6 +151,17 @@ Examples:
 These commands can be combined with `create_midi_track` and `create_midi_clip`
 to build an entire Session View arrangement from a reviewed JSONL plan.
 
+### Stable track references (v0.4.1)
+
+Autonomous batches should create a track with `track_ref` and use that same
+reference in subsequent track and clip commands. Referenced tracks are appended,
+so the Max receiver device is not moved while UDP commands are in flight.
+
+```json
+{"type":"create_midi_track","name":"Darksco Bass","track_ref":"darksco:bass"}
+{"type":"create_midi_clip","track_ref":"darksco:bass","clip":0,"bar":1,"beats":16,"notes":[]}
+```
+
 ## AI Prompt Contract
 
 When asking an AI to control Ableton through this bridge, request JSON commands only:
