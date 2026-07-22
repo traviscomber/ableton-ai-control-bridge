@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$PythonCommand = "py")
+param([string]$PythonCommand)
 
 $ErrorActionPreference = "Stop"
 $SourceRoot = Split-Path -Parent $PSScriptRoot
@@ -38,13 +38,56 @@ Copy-Item (Join-Path $SourceRoot "max-for-live\AI-Control-Bridge-Receiver.maxpat
 Copy-Item (Join-Path $SourceRoot "max-for-live\bridge_receiver.js") $DeviceDir -Force
 Copy-Item (Join-Path $SourceRoot "max-for-live\device-build-guide.md") $DeviceDir -Force
 
-if (-not (Get-Command $PythonCommand -ErrorAction SilentlyContinue)) {
-    throw "Python launcher '$PythonCommand' was not found. Install Python 3.10+ from python.org and enable the py launcher."
+function Find-Python {
+    $candidates = @()
+    if ($PythonCommand) { $candidates += $PythonCommand }
+    $candidates += @(
+        "py",
+        "python",
+        (Join-Path $env:LOCALAPPDATA "Programs\Python\Python313\python.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs\Python\Python312\python.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs\Python\Python311\python.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs\Python\Python310\python.exe")
+    )
+    foreach ($candidate in $candidates) {
+        if (-not $candidate) { continue }
+        $command = Get-Command $candidate -ErrorAction SilentlyContinue
+        if (-not $command) { continue }
+        try {
+            if ($command.Name -eq "py.exe" -or $candidate -eq "py") {
+                $version = & $command.Source -3 -c "import sys; print(sys.version_info[0] * 100 + sys.version_info[1])" 2>$null
+                if ([int]$version -ge 310) { return @{ Exe = $command.Source; Prefix = @("-3") } }
+            } else {
+                $version = & $command.Source -c "import sys; print(sys.version_info[0] * 100 + sys.version_info[1])" 2>$null
+                if ([int]$version -ge 310) { return @{ Exe = $command.Source; Prefix = @() } }
+            }
+        } catch { continue }
+    }
+    return $null
 }
+
+$Python = Find-Python
+if (-not $Python) {
+    $winget = Get-Command "winget" -ErrorAction SilentlyContinue
+    if (-not $winget) {
+        throw "Python 3.10+ was not found and winget is unavailable. Install Python 3.12 from https://www.python.org/downloads/windows/ and run this installer again."
+    }
+    Write-Host "Python was not found. Installing Python 3.12 automatically with winget..." -ForegroundColor Yellow
+    & $winget.Source install --id Python.Python.3.12 -e --scope user --accept-package-agreements --accept-source-agreements
+    if ($LASTEXITCODE -ne 0) { throw "Automatic Python installation failed. Install Python 3.12 from python.org and rerun install.ps1." }
+    $Python = Find-Python
+    if (-not $Python) {
+        throw "Python was installed but could not be located. Close PowerShell, open it again, and rerun windows\install.ps1."
+    }
+}
+Write-Host "Using Python: $($Python.Exe)" -ForegroundColor Green
+$PythonExe = [string]$Python.Exe
+$PythonPrefix = @($Python.Prefix)
 
 Write-Host "[2/6] Creating Python environment on the Desktop..." -ForegroundColor Yellow
 if (-not (Test-Path $VenvPython)) {
-    & $PythonCommand -3 -m venv (Join-Path $ProjectRoot ".venv")
+    & $PythonExe @PythonPrefix -m venv (Join-Path $ProjectRoot ".venv")
+    if ($LASTEXITCODE -ne 0) { throw "Python could not create the virtual environment." }
 }
 & $VenvPython -m pip install --upgrade pip
 & $VenvPython -m pip install -e $ProjectRoot
