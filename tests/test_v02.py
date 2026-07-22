@@ -6,12 +6,14 @@ import time
 import unittest
 import urllib.error
 import urllib.request
+import socket
 from http.server import ThreadingHTTPServer
 
 from ableton_bridge.runner import iter_jsonl
 from ableton_bridge.security import AccessPolicy
 from ableton_bridge.server import BridgeState, load_config, make_handler
 from ableton_bridge.store import CommandStore
+from ableton_bridge.transport import AckListener, UdpTransport
 
 
 class FakeTransport:
@@ -129,6 +131,31 @@ class VersionTwoTest(unittest.TestCase):
             self.assertTrue(config["require_approval"])
         finally:
             os.unlink(path)
+
+    def test_udp_transport_uses_max_message_terminator(self):
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as receiver:
+            receiver.bind(("127.0.0.1", 0))
+            receiver.settimeout(1)
+            UdpTransport("127.0.0.1", receiver.getsockname()[1]).send(
+                {"type": "set_tempo", "bpm": 126}
+            )
+            raw, _ = receiver.recvfrom(4096)
+        self.assertTrue(raw.endswith(b";"))
+        self.assertEqual(json.loads(raw[:-1]), {"type": "set_tempo", "bpm": 126})
+
+    def test_ack_listener_accepts_max_terminator(self):
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.bind(("127.0.0.1", 0))
+            port = probe.getsockname()[1]
+        result = {}
+        listener = AckListener("127.0.0.1", port, timeout=1)
+        thread = threading.Thread(target=lambda: result.update(listener.receive() or {}))
+        thread.start()
+        time.sleep(0.05)
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sender:
+            sender.sendto(b'{"bridge_id":"abc","ok":true};', ("127.0.0.1", port))
+        thread.join(2)
+        self.assertEqual(result, {"bridge_id": "abc", "ok": True})
 
 
 if __name__ == "__main__":
