@@ -44,6 +44,20 @@ class CommandValidationTest(unittest.TestCase):
         with self.assertRaises(CommandError):
             validate_command({"type": "arm_track", "track": 0, "armed": 1})
 
+    def test_accepts_song_structure_commands(self):
+        validate_command({"type": "set_time_signature", "numerator": 4, "denominator": 4})
+        validate_command({"type": "create_scene", "name": "DROP", "index": 2})
+        validate_command({"type": "set_song_loop", "start": 0, "length": 32, "enabled": True})
+
+    def test_accepts_clip_commands(self):
+        validate_command({"type": "launch_clip", "track": 0, "clip": 1})
+        validate_command({"type": "set_clip_color", "track": 0, "clip": 1, "color": 0xFF5500})
+        validate_command({"type": "set_clip_loop", "track": 0, "clip": 1, "start": 0, "length": 8, "enabled": True})
+
+    def test_rejects_bad_time_signature(self):
+        with self.assertRaises(CommandError):
+            validate_command({"type": "set_time_signature", "numerator": 4, "denominator": 3})
+
 
 if __name__ == "__main__":
     unittest.main()
