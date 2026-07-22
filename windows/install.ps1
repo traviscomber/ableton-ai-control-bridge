@@ -33,6 +33,32 @@ if ($sourceFull -ine $targetFull) {
         if (Test-Path $destination) { Remove-Item $destination -Recurse -Force }
         Copy-Item (Join-Path $SourceRoot $folder) $destination -Recurse -Force
     }
+} else {
+    Write-Host "Repairing the existing Desktop package from GitHub..." -ForegroundColor Yellow
+    $repairFiles = @(
+        "ableton_bridge/__init__.py",
+        "ableton_bridge/cli.py",
+        "ableton_bridge/commands.py",
+        "ableton_bridge/runner.py",
+        "ableton_bridge/security.py",
+        "ableton_bridge/server.py",
+        "ableton_bridge/store.py",
+        "ableton_bridge/transport.py",
+        "tests/test_commands.py",
+        "tests/test_v02.py",
+        "pyproject.toml"
+    )
+    foreach ($relative in $repairFiles) {
+        $localRelative = $relative.Replace('/', '\')
+        $destination = Join-Path $ProjectRoot $localRelative
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
+        $url = "https://raw.githubusercontent.com/traviscomber/ableton-ai-control-bridge/main/$relative"
+        try {
+            Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $destination
+        } catch {
+            throw "Could not repair $relative from GitHub. Check your internet connection. $($_.Exception.Message)"
+        }
+    }
 }
 function Install-MaxAsset($fileName) {
     $destination = Join-Path $DeviceDir $fileName
