@@ -19,6 +19,8 @@ class DarkscoTest(unittest.TestCase):
         self.assertEqual(commands[0], {"type": "set_tempo", "bpm": 124})
         self.assertEqual(commands[2]["type"], "create_scene")
         self.assertEqual(commands[4]["type"], "create_midi_clip")
+        self.assertEqual(commands[3]["track_ref"], "darksco:bass")
+        self.assertEqual(commands[4]["track_ref"], "darksco:bass")
 
     def test_rejects_note_outside_register(self):
         plan = self.plan()
