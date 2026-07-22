@@ -58,6 +58,43 @@ function dispatch(c) {
     case "undo":
         api("live_set").call("undo");
         return {target_command_id: c.target_command_id || null};
+    case "start_playback":
+        api("live_set").set("is_playing", 1); return {is_playing: true};
+    case "stop_playback":
+        api("live_set").set("is_playing", 0); return {is_playing: false};
+    case "set_time_signature":
+        api("live_set").set("signature_numerator", c.numerator);
+        api("live_set").set("signature_denominator", c.denominator);
+        return {numerator: c.numerator, denominator: c.denominator};
+    case "set_metronome":
+        api("live_set").set("metronome", c.enabled ? 1 : 0); return {enabled: !!c.enabled};
+    case "set_song_loop":
+        api("live_set").set("loop_start", Number(c.start));
+        api("live_set").set("loop_length", Number(c.length));
+        api("live_set").set("loop", c.enabled ? 1 : 0);
+        return {start: c.start, length: c.length, enabled: !!c.enabled};
+    case "create_scene": return createScene(c);
+    case "duplicate_scene":
+        api("live_set").call("duplicate_scene", integer(c.scene, "scene")); return {scene: c.scene};
+    case "delete_scene":
+        api("live_set").call("delete_scene", integer(c.scene, "scene")); return {scene: c.scene};
+    case "duplicate_track":
+        api("live_set").call("duplicate_track", track(c)); return {track: c.track};
+    case "delete_track":
+        api("live_set").call("delete_track", track(c)); return {track: c.track};
+    case "set_track_mute":
+        api("live_set tracks " + track(c)).set("mute", c.muted ? 1 : 0); return {track: c.track, muted: !!c.muted};
+    case "set_track_solo":
+        api("live_set tracks " + track(c)).set("solo", c.soloed ? 1 : 0); return {track: c.track, soloed: !!c.soloed};
+    case "launch_clip":
+        api(clipSlotPath(c)).call("fire"); return {track: c.track, clip: c.clip};
+    case "stop_track_clips":
+        api("live_set tracks " + track(c)).call("stop_all_clips"); return {track: c.track};
+    case "set_clip_name":
+        api(clipPath(c)).set("name", String(c.name)); return {track: c.track, clip: c.clip, name: c.name};
+    case "set_clip_color":
+        api(clipPath(c)).set("color", integer(c.color, "color")); return {track: c.track, clip: c.clip, color: c.color};
+    case "set_clip_loop": return setClipLoop(c);
     default:
         throw new Error("Unsupported command type: " + c.type);
     }
@@ -76,6 +113,12 @@ function integer(value, name) {
 }
 
 function track(c) { return integer(c.track, "track"); }
+
+function clipSlotPath(c) {
+    return "live_set tracks " + track(c) + " clip_slots " + integer(c.clip, "clip");
+}
+
+function clipPath(c) { return clipSlotPath(c) + " clip"; }
 
 function scalar(value) {
     if (value instanceof Array) return value.length > 1 && value[0] === "id" ? value[1] : value[value.length - 1];
@@ -119,6 +162,23 @@ function createTrack(c, method) {
     var createdIndex = index < 0 ? song.getcount("tracks") - 1 : index;
     api("live_set tracks " + createdIndex).set("name", String(c.name));
     return {track: createdIndex, name: String(c.name)};
+}
+
+function createScene(c) {
+    var song = api("live_set");
+    var index = c.index === undefined ? -1 : integer(c.index, "index");
+    song.call("create_scene", index);
+    var createdIndex = index < 0 ? song.getcount("scenes") - 1 : index;
+    if (c.name !== undefined) api("live_set scenes " + createdIndex).set("name", String(c.name));
+    return {scene: createdIndex, name: c.name || null};
+}
+
+function setClipLoop(c) {
+    var clip = api(clipPath(c));
+    clip.set("loop_start", Number(c.start));
+    clip.set("loop_end", Number(c.start) + Number(c.length));
+    clip.set("looping", c.enabled ? 1 : 0);
+    return {track: c.track, clip: c.clip, start: c.start, length: c.length, enabled: !!c.enabled};
 }
 
 function setDeviceParameter(c) {
