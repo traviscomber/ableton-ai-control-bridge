@@ -23,17 +23,35 @@ def iter_jsonl(path: str):
                 raise ValueError(f"{path}:{line_number}: {exc}") from exc
 
 
-def send(url: str, token: str | None, payload: dict | None = None) -> dict:
+def request_json(url: str, token: str | None, payload: dict | None = None, method: str = "POST") -> dict:
     headers = {"Content-Type": "application/json"}
     if token:
         headers["X-Bridge-Token"] = token
-    data = json.dumps(payload).encode() if payload is not None else b"{}"
-    request = urllib.request.Request(url, data, headers, method="POST")
+    data = None if method == "GET" else json.dumps(payload or {}).encode()
+    request = urllib.request.Request(url, data, headers, method=method)
     try:
         with urllib.request.urlopen(request) as response:
             return json.loads(response.read())
     except urllib.error.HTTPError as exc:
         raise RuntimeError(exc.read().decode()) from exc
+
+
+def send(url: str, token: str | None, payload: dict | None = None) -> dict:
+    return request_json(url, token, payload, "POST")
+
+
+def wait_for_ack(base_url: str, token: str | None, command_id: str, timeout: float) -> dict:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        result = request_json(f"{base_url}/api/commands/{command_id}", token, method="GET")
+        record = result.get("command", {})
+        status = record.get("status")
+        if status in {"acknowledged", "simulated"}:
+            return result
+        if status in {"error", "rejected"}:
+            raise RuntimeError(f"{record.get('command_type', 'command')} {status}: {record.get('error') or 'no detail'}")
+        time.sleep(0.1)
+    raise TimeoutError(f"No Ableton ACK for command {command_id} after {timeout:g}s")
 
 
 def main() -> None:
@@ -48,6 +66,8 @@ def main() -> None:
         action="store_true",
         help="Explicit autonomous-session permission: approve each submitted command.",
     )
+    parser.add_argument("--wait-ack", action="store_true", help="Wait for Ableton ACK before sending the next command.")
+    parser.add_argument("--ack-timeout", type=float, default=20.0)
     args = parser.parse_args()
     count = 0
     for line_number, command in iter_jsonl(args.path):
@@ -63,6 +83,13 @@ def main() -> None:
                     raise RuntimeError("Bridge returned a pending command without an id.")
                 base_url = args.url.rsplit("/command", 1)[0]
                 result = send(f"{base_url}/api/commands/{command_id}/approve", args.token)
+                record = result.get("command", {})
+            if args.wait_ack:
+                command_id = record.get("id")
+                if not command_id:
+                    raise RuntimeError("Bridge returned a command without an id.")
+                base_url = args.url.rsplit("/command", 1)[0]
+                result = wait_for_ack(base_url, args.token, command_id, args.ack_timeout)
             print(json.dumps(result, separators=(",", ":")))
             if args.delay:
                 time.sleep(args.delay)
