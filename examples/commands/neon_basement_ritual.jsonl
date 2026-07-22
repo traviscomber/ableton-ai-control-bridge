@@ -1,0 +1,14 @@
+{"type":"set_tempo","bpm":132}
+{"type":"create_midi_track","name":"NBR Kick Rack","index":0}
+{"type":"create_midi_track","name":"NBR Funk Bass","index":1}
+{"type":"create_midi_track","name":"NBR Acid 303","index":2}
+{"type":"create_midi_track","name":"NBR Dark Stabs","index":3}
+{"type":"set_track_volume","track":0,"volume":0.86}
+{"type":"set_track_volume","track":1,"volume":0.72}
+{"type":"set_track_volume","track":2,"volume":0.58}
+{"type":"set_macro","track":1,"macro":1,"value":0.64}
+{"type":"set_macro","track":1,"macro":2,"value":0.52}
+{"type":"set_macro","track":2,"macro":1,"value":0.35}
+{"type":"set_macro","track":2,"macro":2,"value":0.45}
+{"type":"launch_scene","scene":0}
+
