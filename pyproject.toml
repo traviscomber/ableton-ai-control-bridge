@@ -1,6 +1,6 @@
 [project]
 name = "ableton-ai-control-bridge"
-version = "0.3.0"
+version = "0.4.0"
 description = "Local HTTP-to-UDP bridge for controlling Ableton Live from AI-generated commands."
 requires-python = ">=3.10"
 dependencies = []
