@@ -27,7 +27,7 @@ if ($sourceFull -ine $targetFull) {
     foreach ($file in $files) {
         Copy-Item (Join-Path $SourceRoot $file) $ProjectRoot -Force
     }
-    $folders = @("ableton_bridge", "docs", "examples", "tests", "remote-scripts", "windows")
+    $folders = @("ableton_bridge", "darksco", "docs", "examples", "tests", "remote-scripts", "windows")
     foreach ($folder in $folders) {
         $destination = Join-Path $ProjectRoot $folder
         if (Test-Path $destination) { Remove-Item $destination -Recurse -Force }
@@ -44,8 +44,13 @@ if ($sourceFull -ine $targetFull) {
         "ableton_bridge/server.py",
         "ableton_bridge/store.py",
         "ableton_bridge/transport.py",
+        "darksco/__init__.py",
+        "darksco/song_plan.py",
+        "darksco/compiler.py",
         "tests/test_commands.py",
+        "tests/test_darksco.py",
         "tests/test_v02.py",
+        "docs/darksco.md",
         "windows/doctor.ps1",
         "windows/start-bridge.ps1",
         "windows/open-device-source.ps1",
