@@ -29,7 +29,21 @@ class CommandValidationTest(unittest.TestCase):
         )
         self.assertEqual(command["notes"][0]["pitch"], 41)
 
+    def test_rejects_bad_track_name(self):
+        with self.assertRaises(CommandError):
+            validate_command({"type": "create_midi_track", "name": ""})
+
+    def test_rejects_bad_device_value(self):
+        with self.assertRaises(CommandError):
+            validate_command({
+                "type": "set_device_parameter", "track": 0,
+                "device": "Synth", "parameter": "Cutoff", "value": 2,
+            })
+
+    def test_arm_requires_boolean(self):
+        with self.assertRaises(CommandError):
+            validate_command({"type": "arm_track", "track": 0, "armed": 1})
+
 
 if __name__ == "__main__":
     unittest.main()
-
