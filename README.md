@@ -29,7 +29,11 @@ Cada acción se representa como JSON legible. El objetivo no es generar archivos
 
 ## Estado actual
 
-**Beta técnica / versión 0.3.0, optimizada para Windows + Live 11.**
+**Beta técnica / versión 0.4.0, optimizada para Windows + Live 11.**
+
+La v0.4 amplía el bridge de control a **composición de canciones por escenas**:
+transporte, compás, metrónomo, loops, escenas, pistas, clips, mezcla, nombres y
+colores pueden combinarse con la creación de notas MIDI en planes JSONL revisables.
 
 | Componente | Estado |
 | --- | --- |
@@ -200,6 +204,18 @@ Los índices de pistas y escenas comienzan en `0`. Los índices de macros comien
 | `create_midi_track` | Crea una pista MIDI | `name`; `index` es opcional |
 | `arm_track` | Arma o desarma una pista | `track`, `armed` |
 | `set_device_parameter` | Ajusta un parámetro de dispositivo | `track`, `device`, `parameter`, `value` |
+| `start_playback` / `stop_playback` | Controla el transporte | Ninguno |
+| `set_time_signature` | Define el compás | `numerator`, `denominator` |
+| `set_metronome` | Activa el metrónomo | `enabled` |
+| `set_song_loop` | Configura el loop global | `start`, `length`, `enabled` |
+| `create_scene` | Crea y nombra una sección | `name` e `index` opcionales |
+| `duplicate_scene` / `delete_scene` | Gestiona escenas | `scene` |
+| `duplicate_track` / `delete_track` | Gestiona pistas | `track` |
+| `set_track_mute` / `set_track_solo` | Controla mezcla por pista | `track`, `muted` o `soloed` |
+| `launch_clip` | Lanza un clip | `track`, `clip` |
+| `stop_track_clips` | Detiene los clips de una pista | `track` |
+| `set_clip_name` / `set_clip_color` | Organiza clips | `track`, `clip`, `name` o `color` |
+| `set_clip_loop` | Define el loop de un clip | `track`, `clip`, `start`, `length`, `enabled` |
 
 Ejemplo de clip MIDI:
 
