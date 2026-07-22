@@ -48,6 +48,8 @@ if ($sourceFull -ine $targetFull) {
         "darksco/song_plan.py",
         "darksco/compiler.py",
         "darksco/cli.py",
+        "examples/darksco/first-autonomous-track.json",
+        "examples/darksco/first-autonomous-track.jsonl",
         "tests/test_commands.py",
         "tests/test_darksco.py",
         "tests/test_v02.py",
