@@ -4,6 +4,7 @@ import json
 import sqlite3
 import threading
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -21,8 +22,21 @@ class CommandStore:
         connection.row_factory = sqlite3.Row
         return connection
 
+    @contextmanager
+    def _database(self):
+        """Commit and always close SQLite handles (required on Windows)."""
+        db = self._connect()
+        try:
+            yield db
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
     def _initialize(self) -> None:
-        with self._connect() as db:
+        with self._database() as db:
             db.execute(
                 """
                 CREATE TABLE IF NOT EXISTS commands (
@@ -43,7 +57,7 @@ class CommandStore:
     def create(self, payload: dict[str, Any], status: str, source: str) -> dict[str, Any]:
         command_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
-        with self._lock, self._connect() as db:
+        with self._lock, self._database() as db:
             db.execute(
                 "INSERT INTO commands VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, ?, NULL)",
                 (command_id, now, now, status, payload["type"], json.dumps(payload), source),
@@ -60,7 +74,7 @@ class CommandStore:
         undo_of: str | None = None,
     ) -> dict[str, Any] | None:
         now = datetime.now(timezone.utc).isoformat()
-        with self._lock, self._connect() as db:
+        with self._lock, self._database() as db:
             db.execute(
                 """UPDATE commands SET updated_at=?, status=?, result=?, error=?,
                    undo_of=COALESCE(?, undo_of) WHERE id=?""",
@@ -69,7 +83,7 @@ class CommandStore:
         return self.get(command_id)
 
     def get(self, command_id: str) -> dict[str, Any] | None:
-        with self._connect() as db:
+        with self._database() as db:
             row = db.execute("SELECT * FROM commands WHERE id=?", (command_id,)).fetchone()
         return self._decode(row) if row else None
 
@@ -81,7 +95,7 @@ class CommandStore:
             values.append(status)
         query += " ORDER BY created_at DESC LIMIT ?"
         values.append(max(1, min(limit, 500)))
-        with self._connect() as db:
+        with self._database() as db:
             rows = db.execute(query, values).fetchall()
         return [self._decode(row) for row in rows]
 
