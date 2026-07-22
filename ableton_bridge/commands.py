@@ -92,11 +92,39 @@ def _validate_ranges(payload: dict[str, Any]) -> None:
             raise CommandError("value must be between 0 and 1.")
 
     if command_type == "create_midi_clip":
+        clip = payload["clip"]
+        bar = payload["bar"]
+        beats = _number(payload["beats"], "beats")
+        if not isinstance(clip, int) or clip < 0:
+            raise CommandError("clip must be a zero-based integer.")
+        if not isinstance(bar, int) or bar < 1:
+            raise CommandError("bar must be an integer starting at 1.")
+        if beats <= 0:
+            raise CommandError("beats must be > 0.")
         notes = payload["notes"]
         if not isinstance(notes, list):
             raise CommandError("notes must be a list.")
         for note in notes:
             _validate_note(note)
+
+    if command_type in ("create_audio_track", "create_midi_track"):
+        if not isinstance(payload["name"], str) or not payload["name"].strip():
+            raise CommandError("name must be a non-empty string.")
+        if "index" in payload and (
+            not isinstance(payload["index"], int) or payload["index"] < 0
+        ):
+            raise CommandError("index must be a zero-based integer.")
+
+    if command_type == "arm_track" and not isinstance(payload["armed"], bool):
+        raise CommandError("armed must be a boolean.")
+
+    if command_type == "set_device_parameter":
+        for field in ("device", "parameter"):
+            if not isinstance(payload[field], str) or not payload[field].strip():
+                raise CommandError(f"{field} must be a non-empty string.")
+        value = _number(payload["value"], "value")
+        if not 0 <= value <= 1:
+            raise CommandError("value must be between 0 and 1.")
 
 
 def _validate_note(note: Any) -> None:
@@ -121,4 +149,3 @@ def _number(value: Any, name: str) -> float:
     if not isinstance(value, (int, float)):
         raise CommandError(f"{name} must be a number.")
     return float(value)
-
