@@ -9,7 +9,12 @@ dependencies = []
 ableton-bridge = "ableton_bridge.server:main"
 ableton-bridge-send = "ableton_bridge.cli:main"
 ableton-bridge-run = "ableton_bridge.runner:main"
+darksco-compile = "darksco.cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["ableton_bridge*", "darksco*"]
+exclude = ["tests*", "examples*", "docs*", "remote-scripts*", "windows*"]
