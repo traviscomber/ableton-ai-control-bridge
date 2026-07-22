@@ -1,0 +1,35 @@
+import unittest
+
+from ableton_bridge.commands import CommandError, validate_command
+
+
+class CommandValidationTest(unittest.TestCase):
+    def test_set_tempo(self):
+        command = validate_command({"type": "set_tempo", "bpm": 132})
+        self.assertEqual(command["bpm"], 132)
+
+    def test_rejects_unknown_type(self):
+        with self.assertRaises(CommandError):
+            validate_command({"type": "explode", "value": 1})
+
+    def test_rejects_bad_macro_range(self):
+        with self.assertRaises(CommandError):
+            validate_command({"type": "set_macro", "track": 1, "macro": 20, "value": 0.5})
+
+    def test_accepts_midi_clip(self):
+        command = validate_command(
+            {
+                "type": "create_midi_clip",
+                "track": 1,
+                "clip": 0,
+                "bar": 1,
+                "beats": 8,
+                "notes": [{"pitch": 41, "start": 0, "duration": 0.5, "velocity": 100}],
+            }
+        )
+        self.assertEqual(command["notes"][0]["pitch"], 41)
+
+
+if __name__ == "__main__":
+    unittest.main()
+
