@@ -1,6 +1,7 @@
 autowatch = 1;
 inlets = 1;
 outlets = 2;
+var trackRefs = {};
 
 function dictionary(name) {
     var source = new Dict(name);
@@ -112,7 +113,14 @@ function integer(value, name) {
     return Number(value);
 }
 
-function track(c) { return integer(c.track, "track"); }
+function track(c) {
+    if (c.track_ref !== undefined) {
+        var ref = String(c.track_ref);
+        if (trackRefs[ref] === undefined) throw new Error("Unknown track_ref: " + ref);
+        return trackRefs[ref];
+    }
+    return integer(c.track, "track");
+}
 
 function clipSlotPath(c) {
     return "live_set tracks " + track(c) + " clip_slots " + integer(c.clip, "clip");
@@ -157,11 +165,14 @@ function setMacro(c) {
 
 function createTrack(c, method) {
     var song = api("live_set");
-    var index = c.index === undefined ? -1 : integer(c.index, "index");
+    // Referenced tracks are always appended so the Max receiver track never
+    // moves or reloads during an autonomous batch.
+    var index = c.track_ref !== undefined ? -1 : (c.index === undefined ? -1 : integer(c.index, "index"));
     song.call(method, index);
     var createdIndex = index < 0 ? song.getcount("tracks") - 1 : index;
     api("live_set tracks " + createdIndex).set("name", String(c.name));
-    return {track: createdIndex, name: String(c.name)};
+    if (c.track_ref !== undefined) trackRefs[String(c.track_ref)] = createdIndex;
+    return {track: createdIndex, track_ref: c.track_ref || null, name: String(c.name)};
 }
 
 function createScene(c) {
