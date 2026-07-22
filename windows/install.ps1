@@ -65,6 +65,20 @@ if ($sourceFull -ine $targetFull) {
 }
 function Install-MaxAsset($fileName) {
     $destination = Join-Path $DeviceDir $fileName
+    $url = "https://raw.githubusercontent.com/traviscomber/ableton-ai-control-bridge/main/max-for-live/$fileName"
+
+    # When repairing the installed Desktop package, always refresh source assets.
+    # The user's compiled .amxd is intentionally left untouched.
+    if ($sourceFull -ieq $targetFull) {
+        Write-Host "Updating Max asset: $fileName" -ForegroundColor Yellow
+        try {
+            Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $destination
+            return
+        } catch {
+            throw "Could not update $fileName from GitHub. Check your internet connection and run install.ps1 again. $($_.Exception.Message)"
+        }
+    }
+
     $sourceCandidates = @(
         (Join-Path $SourceRoot "max-for-live\$fileName"),
         (Join-Path $SourceRoot "Max for Live Device\$fileName")
@@ -77,7 +91,6 @@ function Install-MaxAsset($fileName) {
             return
         }
     }
-    $url = "https://raw.githubusercontent.com/traviscomber/ableton-ai-control-bridge/main/max-for-live/$fileName"
     Write-Host "Downloading missing Max asset: $fileName" -ForegroundColor Yellow
     try {
         Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $destination
@@ -145,6 +158,16 @@ if (-not (Test-Path $VenvPython)) {
 & $VenvPython -m pip install -e $ProjectRoot
 
 Write-Host "[3/6] Creating secure local configuration..." -ForegroundColor Yellow
+$AllowedCommands = @(
+    "set_tempo", "launch_scene", "stop_all_clips", "set_track_volume",
+    "set_track_pan", "set_macro", "create_midi_clip", "create_audio_track",
+    "create_midi_track", "arm_track", "set_device_parameter",
+    "start_playback", "stop_playback", "set_time_signature", "set_metronome",
+    "set_song_loop", "create_scene", "duplicate_scene", "delete_scene",
+    "duplicate_track", "delete_track", "set_track_mute", "set_track_solo",
+    "launch_clip", "stop_track_clips", "set_clip_name", "set_clip_color",
+    "set_clip_loop"
+)
 if (-not (Test-Path $ConfigPath)) {
     $bytes = New-Object byte[] 32
     $random = [Security.Cryptography.RandomNumberGenerator]::Create()
@@ -160,18 +183,16 @@ if (-not (Test-Path $ConfigPath)) {
         ack_port = 9002
         database = $DataPath
         token = $token
-        allow = @(
-            "set_tempo", "launch_scene", "stop_all_clips",
-            "set_track_volume", "set_track_pan", "set_macro",
-            "create_midi_clip", "create_audio_track", "create_midi_track",
-            "arm_track", "set_device_parameter"
-        )
+        allow = $AllowedCommands
         require_approval = $true
         dry_run = $false
     }
     $config | ConvertTo-Json -Depth 4 | Set-Content -Encoding UTF8 $ConfigPath
 } else {
-    Write-Host "Keeping your existing Desktop token and history configuration."
+    $existingConfig = Get-Content $ConfigPath | ConvertFrom-Json
+    $existingConfig.allow = $AllowedCommands
+    $existingConfig | ConvertTo-Json -Depth 4 | Set-Content -Encoding UTF8 $ConfigPath
+    Write-Host "Keeping your token and history; command permissions upgraded to v0.4."
 }
 
 Write-Host "[4/6] Creating easy launchers..." -ForegroundColor Yellow
