@@ -235,6 +235,12 @@ Ejemplo de clip MIDI:
 
 La especificación y más ejemplos están en [`docs/protocol.md`](docs/protocol.md).
 
+## Darksco: compositor IA
+
+Darksco convierte una intención musical en un `SongPlan` validable y después en
+comandos del bridge. Puede trabajar como copiloto, productor de un track completo
+o compositor autónomo por sesión. Consulta [`docs/darksco.md`](docs/darksco.md).
+
 ## Integración con una IA
 
 El modelo o agente no necesita acceso directo a Ableton. Solo debe producir comandos compatibles y enviarlos al endpoint local.
