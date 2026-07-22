@@ -4,6 +4,8 @@ import argparse
 import json
 import os
 import threading
+from datetime import datetime, timezone
+from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import parse_qs, urlparse
@@ -33,6 +35,7 @@ class BridgeState:
         self.require_approval = require_approval
         self.ack_host = ack_host
         self.ack_port = ack_port
+        self.last_ack_at: str | None = None
 
     def submit(self, payload: dict[str, Any], source: str) -> dict[str, Any]:
         command = validate_command(payload)
@@ -93,6 +96,7 @@ class BridgeState:
                 if not message or not isinstance(message.get("bridge_id"), str):
                     continue
                 ok = message.get("ok") is True
+                self.last_ack_at = datetime.now(timezone.utc).isoformat()
                 self.store.update(
                     message["bridge_id"],
                     "acknowledged" if ok else "error",
@@ -115,13 +119,15 @@ def make_handler(state: BridgeState) -> type[BaseHTTPRequestHandler]:
             if parsed.path == "/health":
                 self._send_json(200, {
                     "ok": True,
-                    "version": "0.2.0",
+                    "version": "0.3.0",
                     "dry_run": state.dry_run,
                     "approval_required": state.require_approval,
                     "authentication_required": bool(state.policy.token),
                     "allowed_commands": sorted(state.policy.allowed or COMMANDS),
                     "udp_target": f"{state.transport.host}:{state.transport.port}",
                     "ack_listener": f"{state.ack_host}:{state.ack_port}",
+                    "max_receiver_seen": state.last_ack_at is not None,
+                    "last_ack_at": state.last_ack_at,
                 })
                 return
             if parsed.path == "/api/commands":
@@ -204,7 +210,7 @@ def make_handler(state: BridgeState) -> type[BaseHTTPRequestHandler]:
     return Handler
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser(defaults: dict[str, Any] | None = None) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the Ableton AI Control Bridge.")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", default=8765, type=int)
@@ -217,12 +223,39 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--allow", help="Comma-separated command allowlist.")
     parser.add_argument("--require-approval", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--config", help="Path to a JSON configuration file.")
+    if defaults:
+        parser.set_defaults(**defaults)
     return parser
 
 
+def load_config(path: str) -> dict[str, Any]:
+    try:
+        # utf-8-sig accepts the BOM written by Windows PowerShell 5.1.
+        defaults = json.loads(Path(path).read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Cannot load config file: {exc}") from exc
+    if not isinstance(defaults, dict):
+        raise ValueError("Config file must contain a JSON object.")
+    return defaults
+
+
 def main() -> None:
-    args = build_parser().parse_args()
-    allowed = {item.strip() for item in args.allow.split(",") if item.strip()} if args.allow else None
+    config_parser = argparse.ArgumentParser(add_help=False)
+    config_parser.add_argument("--config")
+    config_arg, _ = config_parser.parse_known_args()
+    defaults: dict[str, Any] = {}
+    if config_arg.config:
+        try:
+            defaults = load_config(config_arg.config)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
+    args = build_parser(defaults).parse_args()
+    allow_value = args.allow
+    if isinstance(allow_value, list):
+        allowed = {str(item).strip() for item in allow_value if str(item).strip()}
+    else:
+        allowed = {item.strip() for item in allow_value.split(",") if item.strip()} if allow_value else None
     unknown = allowed - set(COMMANDS) if allowed else set()
     if unknown:
         raise SystemExit(f"Unknown command(s) in --allow: {', '.join(sorted(unknown))}")
@@ -238,7 +271,7 @@ def main() -> None:
     if not args.dry_run:
         threading.Thread(target=state.receive_acknowledgements, daemon=True).start()
     server = ThreadingHTTPServer((args.host, args.port), make_handler(state))
-    print(f"Ableton AI Control Bridge v0.2 listening on http://{args.host}:{args.port}")
+    print(f"Ableton AI Control Bridge v0.3 listening on http://{args.host}:{args.port}")
     print(f"UDP target={args.udp_host}:{args.udp_port} ack={args.ack_host}:{args.ack_port}")
     print(f"dry_run={args.dry_run} approval={args.require_approval} auth={bool(args.token)}")
     server.serve_forever()
