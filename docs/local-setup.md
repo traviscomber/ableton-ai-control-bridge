@@ -6,7 +6,8 @@
 cd ableton-ai-control-bridge
 python -m venv .venv
 source .venv/bin/activate
-python -m ableton_bridge.server
+python -m pip install -e .
+python -m ableton_bridge.server --token "change-this-token" --require-approval
 ```
 
 Windows PowerShell:
@@ -15,20 +16,24 @@ Windows PowerShell:
 cd ableton-ai-control-bridge
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m ableton_bridge.server
+python -m pip install -e .
+python -m ableton_bridge.server --token "change-this-token" --require-approval
 ```
 
 ## 2. Build the Max for Live Device
 
 Open `max-for-live/device-build-guide.md` and create the device in Max for Live.
 
-The device should listen on UDP port `9001`.
+Open `max-for-live/AI-Control-Bridge-Receiver.maxpat` in Max for Live,
+confirm that `bridge_receiver.js` is found, and use **Save As** to create
+`AI Control Bridge Receiver.amxd`. The device listens on UDP `9001` and
+returns acknowledgements to UDP `9002`.
 
 ## 3. Test
 
 ```bash
-python -m ableton_bridge.cli '{"type":"set_tempo","bpm":132}'
-python -m ableton_bridge.cli '{"type":"set_macro","track":1,"macro":1,"value":0.8}'
+python -m ableton_bridge.cli --token "change-this-token" '{"type":"set_tempo","bpm":132}'
+ableton-bridge-run examples/commands/neon_basement_ritual.jsonl --token "change-this-token" --validate-only
 ```
 
 ## 4. AI Workflow
@@ -41,3 +46,5 @@ Create commands for Ableton. Tempo 132. Track 1 bass macro 1 opens during bars 3
 
 Paste or pipe those commands to the bridge.
 
+Open `http://127.0.0.1:8765` to review, approve, reject, inspect, or undo
+commands. Enter the local token in the UI when authentication is active.
