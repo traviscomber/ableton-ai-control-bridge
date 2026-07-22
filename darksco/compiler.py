@@ -19,26 +19,27 @@ def compile_song_plan(plan: dict) -> list[dict]:
         section_indexes[section["id"]] = index
         commands.append({"type": "create_scene", "name": section.get("name", section["id"]), "index": index})
     for track_index, track in enumerate(plan.get("tracks", [])):
+        track_ref = "darksco:" + str(track.get("id", track_index))
         commands.append({
             "type": "create_midi_track" if track.get("kind", "midi") == "midi" else "create_audio_track",
             "name": track.get("name", track.get("id", f"Track {track_index + 1}")),
-            "index": track_index,
+            "track_ref": track_ref,
         })
         if "volume" in track:
-            commands.append({"type": "set_track_volume", "track": track_index, "volume": track["volume"]})
+            commands.append({"type": "set_track_volume", "track_ref": track_ref, "volume": track["volume"]})
         if "pan" in track:
-            commands.append({"type": "set_track_pan", "track": track_index, "pan": track["pan"]})
+            commands.append({"type": "set_track_pan", "track_ref": track_ref, "pan": track["pan"]})
         for clip in track.get("clips", []):
             clip_index = section_indexes[clip["section"]]
             length = clip["length_beats"]
             if track.get("kind", "midi") == "midi":
-                commands.append({"type": "create_midi_clip", "track": track_index, "clip": clip_index,
+                commands.append({"type": "create_midi_clip", "track_ref": track_ref, "clip": clip_index,
                                  "bar": 1, "beats": length, "notes": clip.get("notes", [])})
-            commands.append({"type": "set_clip_name", "track": track_index, "clip": clip_index,
+            commands.append({"type": "set_clip_name", "track_ref": track_ref, "clip": clip_index,
                              "name": clip.get("name", clip["section"])})
             if "color" in clip:
-                commands.append({"type": "set_clip_color", "track": track_index, "clip": clip_index,
+                commands.append({"type": "set_clip_color", "track_ref": track_ref, "clip": clip_index,
                                  "color": clip["color"]})
-            commands.append({"type": "set_clip_loop", "track": track_index, "clip": clip_index,
+            commands.append({"type": "set_clip_loop", "track_ref": track_ref, "clip": clip_index,
                              "start": 0, "length": length, "enabled": clip.get("loop", True)})
     return commands
