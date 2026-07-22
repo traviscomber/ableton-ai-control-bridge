@@ -54,6 +54,20 @@ class CommandValidationTest(unittest.TestCase):
         validate_command({"type": "set_clip_color", "track": 0, "clip": 1, "color": 0xFF5500})
         validate_command({"type": "set_clip_loop", "track": 0, "clip": 1, "start": 0, "length": 8, "enabled": True})
 
+    def test_accepts_stable_track_reference(self):
+        validate_command({"type": "create_midi_track", "name": "Bass", "track_ref": "darksco:bass"})
+        command = validate_command({
+            "type": "create_midi_clip", "track_ref": "darksco:bass", "clip": 0,
+            "bar": 1, "beats": 4, "notes": [],
+        })
+        self.assertEqual(command["track_ref"], "darksco:bass")
+
+    def test_requires_exactly_one_track_target(self):
+        with self.assertRaises(CommandError):
+            validate_command({"type": "launch_clip", "clip": 0})
+        with self.assertRaises(CommandError):
+            validate_command({"type": "launch_clip", "track": 0, "track_ref": "bass", "clip": 0})
+
     def test_rejects_bad_time_signature(self):
         with self.assertRaises(CommandError):
             validate_command({"type": "set_time_signature", "numerator": 4, "denominator": 3})
