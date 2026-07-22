@@ -241,6 +241,22 @@ Darksco convierte una intención musical en un `SongPlan` validable y después e
 comandos del bridge. Puede trabajar como copiloto, productor de un track completo
 o compositor autónomo por sesión. Consulta [`docs/darksco.md`](docs/darksco.md).
 
+Primer track autónomo incluido:
+
+```powershell
+darksco-compile examples/darksco/first-autonomous-track.json --output examples/darksco/first-autonomous-track.jsonl
+ableton-bridge-run examples/darksco/first-autonomous-track.jsonl --validate-only
+```
+
+Para una sesión autónoma explícita, inicia el bridge, deja el receptor cargado y
+usa `--auto-approve`. Esta opción aprueba solamente los comandos del archivo
+enviado y sigue respetando el token y la allowlist:
+
+```powershell
+$token = (Get-Content .\config.json | ConvertFrom-Json).token
+ableton-bridge-run examples/darksco/first-autonomous-track.jsonl --token $token --auto-approve --delay 0.15
+```
+
 ## Integración con una IA
 
 El modelo o agente no necesita acceso directo a Ableton. Solo debe producir comandos compatibles y enviarlos al endpoint local.
