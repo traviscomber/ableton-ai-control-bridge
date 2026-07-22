@@ -8,6 +8,24 @@ POST /command
 
 It validates the command and forwards it as compact JSON over UDP to Max for Live.
 
+When a command is forwarded, the bridge adds transport metadata:
+
+```json
+{"bridge_id":"uuid","ack_host":"127.0.0.1","ack_port":9002}
+```
+
+The Max receiver returns an acknowledgement over UDP:
+
+```json
+{"bridge_id":"uuid","ok":true,"result":{"tempo":132}}
+```
+
+or an execution error:
+
+```json
+{"bridge_id":"uuid","ok":false,"error":"Device not found: Bass"}
+```
+
 ## Coordinate System
 
 - Tracks are zero-based: first track is `0`.
@@ -88,6 +106,27 @@ It validates the command and forwards it as compact JSON over UDP to Max for Liv
 {"type":"set_device_parameter","track":2,"device":"NBR Acid 303","parameter":"Acid Open","value":0.85}
 ```
 
+### arm_track
+
+```json
+{"type":"arm_track","track":1,"armed":true}
+```
+
+## Command Lifecycle
+
+Stored commands use these states:
+
+- `pending`: waiting for approval.
+- `accepted`: validated and ready to dispatch.
+- `sent`: sent by UDP and awaiting Max.
+- `acknowledged`: Max reports successful execution.
+- `error`: transport or execution failed.
+- `rejected`: rejected in the approval UI.
+- `simulated`: accepted in dry-run mode without UDP.
+
+Undo is a bridge control operation. `POST /api/commands/{id}/undo` sends an
+internal `undo` envelope to Max, which invokes Live's undo operation.
+
 ## AI Prompt Contract
 
 When asking an AI to control Ableton through this bridge, request JSON commands only:
@@ -95,4 +134,3 @@ When asking an AI to control Ableton through this bridge, request JSON commands 
 ```text
 Return one JSON command per line. Use only command types from docs/protocol.md. Do not include prose.
 ```
-
