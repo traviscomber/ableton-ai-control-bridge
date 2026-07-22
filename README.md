@@ -29,7 +29,7 @@ Cada acción se representa como JSON legible. El objetivo no es generar archivos
 
 ## Estado actual
 
-**Beta técnica / versión 0.2.0.**
+**Beta técnica / versión 0.3.0, optimizada para Windows + Live 11.**
 
 | Componente | Estado |
 | --- | --- |
@@ -53,6 +53,19 @@ Cada acción se representa como JSON legible. El objetivo no es generar archivos
 
 ## Instalación rápida
 
+### Windows + Ableton Live 11 — recomendado
+
+El instalador deja **todo** dentro de `Escritorio\Ableton AI Control Bridge`:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\windows\install.ps1
+```
+
+Después sigue la guía específica: [`docs/windows-live11.md`](docs/windows-live11.md).
+Al finalizar tendrás tres launchers de doble clic: `START BRIDGE.cmd`,
+`CHECK INSTALLATION.cmd` y `OPEN MAX DEVICE SOURCE.cmd`.
+
 ### macOS o Linux
 
 ```bash
@@ -63,7 +76,7 @@ source .venv/bin/activate
 python -m pip install -e .
 ```
 
-### Windows PowerShell
+### Instalación Python manual en Windows
 
 ```powershell
 git clone https://github.com/traviscomber/ableton-ai-control-bridge.git
