@@ -2,60 +2,177 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
-from .commands import CommandError, validate_command
-from .transport import UdpTransport
+from .commands import COMMANDS, CommandError, validate_command
+from .security import AccessPolicy
+from .store import CommandStore
+from .transport import AckListener, UdpTransport
 
 
 class BridgeState:
-    def __init__(self, transport: UdpTransport, dry_run: bool = False):
+    def __init__(
+        self,
+        transport: UdpTransport,
+        store: CommandStore,
+        policy: AccessPolicy,
+        *,
+        dry_run: bool = False,
+        require_approval: bool = False,
+        ack_host: str = "127.0.0.1",
+        ack_port: int = 9002,
+    ):
         self.transport = transport
+        self.store = store
+        self.policy = policy
         self.dry_run = dry_run
-        self.command_count = 0
-        self.last_command: dict[str, Any] | None = None
+        self.require_approval = require_approval
+        self.ack_host = ack_host
+        self.ack_port = ack_port
+
+    def submit(self, payload: dict[str, Any], source: str) -> dict[str, Any]:
+        command = validate_command(payload)
+        if not self.policy.allows(command["type"]):
+            raise PermissionError(f"Command type is not allowed in this session: {command['type']}")
+        status = "pending" if self.require_approval else "accepted"
+        record = self.store.create(command, status, source)
+        return record if self.require_approval else self.dispatch(record)
+
+    def dispatch(self, record: dict[str, Any]) -> dict[str, Any]:
+        if record["status"] not in ("accepted", "pending"):
+            raise CommandError(f"Command cannot be dispatched from status: {record['status']}")
+        if self.dry_run:
+            return self.store.update(record["id"], "simulated", result={"forwarded": False}) or record
+        envelope = dict(record["payload"])
+        envelope["bridge_id"] = record["id"]
+        envelope["ack_host"] = self.ack_host
+        envelope["ack_port"] = self.ack_port
+        try:
+            self.transport.send(envelope)
+        except OSError as exc:
+            return self.store.update(record["id"], "error", error=str(exc)) or record
+        return self.store.update(record["id"], "sent", result={"forwarded": True}) or record
+
+    def approve(self, command_id: str) -> dict[str, Any]:
+        record = self.store.get(command_id)
+        if not record:
+            raise KeyError(command_id)
+        return self.dispatch(record)
+
+    def reject(self, command_id: str) -> dict[str, Any]:
+        record = self.store.get(command_id)
+        if not record:
+            raise KeyError(command_id)
+        if record["status"] != "pending":
+            raise CommandError("Only pending commands can be rejected.")
+        return self.store.update(command_id, "rejected") or record
+
+    def undo(self, command_id: str, source: str) -> dict[str, Any]:
+        target = self.store.get(command_id)
+        if not target:
+            raise KeyError(command_id)
+        if target["status"] not in ("sent", "acknowledged"):
+            raise CommandError("Only sent or acknowledged commands can be undone.")
+        undo_record = self.store.create({"type": "undo", "target_command_id": command_id}, "accepted", source)
+        if self.dry_run:
+            return self.store.update(undo_record["id"], "simulated", undo_of=command_id) or undo_record
+        envelope = dict(undo_record["payload"])
+        envelope.update({"bridge_id": undo_record["id"], "ack_host": self.ack_host, "ack_port": self.ack_port})
+        self.transport.send(envelope)
+        return self.store.update(undo_record["id"], "sent", undo_of=command_id) or undo_record
+
+    def receive_acknowledgements(self) -> None:
+        listener = AckListener(self.ack_host, self.ack_port)
+        while True:
+            try:
+                message = listener.receive()
+                if not message or not isinstance(message.get("bridge_id"), str):
+                    continue
+                ok = message.get("ok") is True
+                self.store.update(
+                    message["bridge_id"],
+                    "acknowledged" if ok else "error",
+                    result=message.get("result"),
+                    error=None if ok else str(message.get("error", "Ableton execution failed")),
+                )
+            except (OSError, ValueError, json.JSONDecodeError):
+                continue
 
 
 def make_handler(state: BridgeState) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
-        server_version = "AbletonAIControlBridge/0.1"
+        server_version = "AbletonAIControlBridge/0.2"
 
         def do_GET(self) -> None:
-            if self.path != "/health":
-                self._send_json(404, {"ok": False, "error": "Not found"})
+            parsed = urlparse(self.path)
+            if parsed.path == "/":
+                self._send_html(APPROVAL_UI)
                 return
-            self._send_json(
-                200,
-                {
+            if parsed.path == "/health":
+                self._send_json(200, {
                     "ok": True,
+                    "version": "0.2.0",
                     "dry_run": state.dry_run,
-                    "commands_forwarded": state.command_count,
-                    "udp_host": state.transport.host,
-                    "udp_port": state.transport.port,
-                },
-            )
+                    "approval_required": state.require_approval,
+                    "authentication_required": bool(state.policy.token),
+                    "allowed_commands": sorted(state.policy.allowed or COMMANDS),
+                    "udp_target": f"{state.transport.host}:{state.transport.port}",
+                    "ack_listener": f"{state.ack_host}:{state.ack_port}",
+                })
+                return
+            if parsed.path == "/api/commands":
+                if not self._authorized():
+                    return
+                query = parse_qs(parsed.query)
+                status = query.get("status", [None])[0]
+                limit = int(query.get("limit", ["100"])[0])
+                self._send_json(200, {"ok": True, "commands": state.store.list(status=status, limit=limit)})
+                return
+            self._send_json(404, {"ok": False, "error": "Not found"})
 
         def do_POST(self) -> None:
-            if self.path != "/command":
-                self._send_json(404, {"ok": False, "error": "Not found"})
+            if not self._authorized():
                 return
-
+            parsed = urlparse(self.path)
             try:
-                payload = self._read_json()
-                command = validate_command(payload)
-                state.last_command = command
-                if not state.dry_run:
-                    state.transport.send(command)
-                state.command_count += 1
-            except (CommandError, json.JSONDecodeError) as exc:
+                if parsed.path == "/command":
+                    record = state.submit(self._read_json(), self.client_address[0])
+                    self._send_json(202, {"ok": True, "command": record})
+                    return
+                parts = parsed.path.strip("/").split("/")
+                if len(parts) == 4 and parts[:2] == ["api", "commands"]:
+                    command_id, action = parts[2], parts[3]
+                    if action == "approve":
+                        record = state.approve(command_id)
+                    elif action == "reject":
+                        record = state.reject(command_id)
+                    elif action == "undo":
+                        record = state.undo(command_id, self.client_address[0])
+                    else:
+                        raise KeyError(action)
+                    self._send_json(202, {"ok": True, "command": record})
+                    return
+                self._send_json(404, {"ok": False, "error": "Not found"})
+            except PermissionError as exc:
+                self._send_json(403, {"ok": False, "error": str(exc)})
+            except KeyError:
+                self._send_json(404, {"ok": False, "error": "Command not found"})
+            except (CommandError, json.JSONDecodeError, ValueError) as exc:
                 self._send_json(400, {"ok": False, "error": str(exc)})
-                return
 
-            self._send_json(202, {"ok": True, "forwarded": not state.dry_run, "command": command})
-
-        def log_message(self, format: str, *args: Any) -> None:
-            return
+        def _authorized(self) -> bool:
+            supplied = self.headers.get("X-Bridge-Token")
+            authorization = self.headers.get("Authorization", "")
+            if not supplied and authorization.startswith("Bearer "):
+                supplied = authorization[7:]
+            if state.policy.authorize(supplied):
+                return True
+            self._send_json(401, {"ok": False, "error": "Missing or invalid bridge token"})
+            return False
 
         def _read_json(self) -> dict[str, Any]:
             length = int(self.headers.get("Content-Length", "0"))
@@ -73,28 +190,75 @@ def make_handler(state: BridgeState) -> type[BaseHTTPRequestHandler]:
             self.end_headers()
             self.wfile.write(body)
 
+        def _send_html(self, body: str) -> None:
+            encoded = body.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(encoded)))
+            self.end_headers()
+            self.wfile.write(encoded)
+
+        def log_message(self, format: str, *args: Any) -> None:
+            return
+
     return Handler
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the Ableton AI Control Bridge.")
-    parser.add_argument("--host", default="127.0.0.1", help="HTTP host to bind.")
-    parser.add_argument("--port", default=8765, type=int, help="HTTP port to bind.")
-    parser.add_argument("--udp-host", default="127.0.0.1", help="Max for Live UDP host.")
-    parser.add_argument("--udp-port", default=9001, type=int, help="Max for Live UDP port.")
-    parser.add_argument("--dry-run", action="store_true", help="Validate commands without forwarding UDP.")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", default=8765, type=int)
+    parser.add_argument("--udp-host", default="127.0.0.1")
+    parser.add_argument("--udp-port", default=9001, type=int)
+    parser.add_argument("--ack-host", default="127.0.0.1")
+    parser.add_argument("--ack-port", default=9002, type=int)
+    parser.add_argument("--database", default=".ableton-bridge/history.sqlite3")
+    parser.add_argument("--token", default=os.environ.get("ABLETON_BRIDGE_TOKEN"))
+    parser.add_argument("--allow", help="Comma-separated command allowlist.")
+    parser.add_argument("--require-approval", action="store_true")
+    parser.add_argument("--dry-run", action="store_true")
     return parser
 
 
 def main() -> None:
     args = build_parser().parse_args()
-    state = BridgeState(UdpTransport(args.udp_host, args.udp_port), dry_run=args.dry_run)
+    allowed = {item.strip() for item in args.allow.split(",") if item.strip()} if args.allow else None
+    unknown = allowed - set(COMMANDS) if allowed else set()
+    if unknown:
+        raise SystemExit(f"Unknown command(s) in --allow: {', '.join(sorted(unknown))}")
+    state = BridgeState(
+        UdpTransport(args.udp_host, args.udp_port),
+        CommandStore(args.database),
+        AccessPolicy(args.token, allowed),
+        dry_run=args.dry_run,
+        require_approval=args.require_approval,
+        ack_host=args.ack_host,
+        ack_port=args.ack_port,
+    )
+    if not args.dry_run:
+        threading.Thread(target=state.receive_acknowledgements, daemon=True).start()
     server = ThreadingHTTPServer((args.host, args.port), make_handler(state))
-    print(f"Ableton AI Control Bridge listening on http://{args.host}:{args.port}")
-    print(f"Forwarding UDP to {args.udp_host}:{args.udp_port} dry_run={args.dry_run}")
+    print(f"Ableton AI Control Bridge v0.2 listening on http://{args.host}:{args.port}")
+    print(f"UDP target={args.udp_host}:{args.udp_port} ack={args.ack_host}:{args.ack_port}")
+    print(f"dry_run={args.dry_run} approval={args.require_approval} auth={bool(args.token)}")
     server.serve_forever()
+
+
+APPROVAL_UI = r'''<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ableton AI Control Bridge</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,system-ui;background:#111;color:#eee}body{max-width:1100px;margin:0 auto;padding:32px}h1{font-size:28px}header{display:flex;gap:16px;align-items:center;justify-content:space-between}input{background:#202020;border:1px solid #444;color:#fff;padding:10px;border-radius:8px}.card{background:#1a1a1a;border:1px solid #333;border-radius:12px;padding:16px;margin:12px 0}.meta{color:#aaa;font-size:12px}.status{color:#55e39f}pre{white-space:pre-wrap;color:#d7d7d7}button{border:0;border-radius:8px;padding:9px 14px;margin-right:8px;cursor:pointer}.approve{background:#55e39f}.reject{background:#ff6b6b}.undo{background:#ffc857}#error{color:#ff6b6b}
+</style>
+<body><header><div><h1>Ableton AI Control Bridge</h1><p>Approval queue and command history</p></div><input id="token" type="password" placeholder="Local bridge token"></header><p id="error"></p><main id="list"></main>
+<script>
+const token=document.querySelector('#token');token.value=localStorage.bridgeToken||'';token.onchange=()=>{localStorage.bridgeToken=token.value;load()};
+const headers=()=>({'X-Bridge-Token':token.value});
+async function action(id,name){await fetch(`/api/commands/${id}/${name}`,{method:'POST',headers:headers()});load()}
+async function load(){try{const r=await fetch('/api/commands?limit=100',{headers:headers()});const data=await r.json();if(!r.ok)throw Error(data.error);document.querySelector('#error').textContent='';document.querySelector('#list').innerHTML=data.commands.map(c=>`<section class="card"><div><b>${c.command_type}</b> · <span class="status">${c.status}</span></div><div class="meta">${c.created_at} · ${c.id}</div><pre>${JSON.stringify(c.payload,null,2)}</pre>${c.error?`<p id="error">${c.error}</p>`:''}${c.status==='pending'?`<button class="approve" onclick="action('${c.id}','approve')">Approve</button><button class="reject" onclick="action('${c.id}','reject')">Reject</button>`:''}${['sent','acknowledged'].includes(c.status)?`<button class="undo" onclick="action('${c.id}','undo')">Undo</button>`:''}</section>`).join('')||'<p>No commands yet.</p>'}catch(e){document.querySelector('#error').textContent=e.message}}
+load();setInterval(load,2000);
+</script></body></html>'''
 
 
 if __name__ == "__main__":
     main()
-
