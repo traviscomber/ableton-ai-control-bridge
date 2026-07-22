@@ -14,7 +14,8 @@ cuando la licencia lo incorpora; Live Suite no necesita instalar Max aparte.
 
 - Windows 10 u 11.
 - Ableton Live 11 Suite, o Live 11 con licencia de Max for Live.
-- Python 3.10 o posterior desde python.org, incluyendo el launcher `py`.
+- Python 3.10 o posterior. Si no está instalado, el instalador intenta añadir
+  Python 3.12 automáticamente mediante `winget`.
 - El repositorio descargado y descomprimido.
 
 ## 2. Instalar todo en el Escritorio
@@ -49,6 +50,10 @@ Ableton AI Control Bridge\
 
 El token se genera aleatoriamente y permanece en `config.json`. La aprobación
 manual queda activa por defecto.
+
+El instalador detecta `py`, `python.exe` y las ubicaciones estándar de Python
+3.10–3.13. Si no encuentra Python, utiliza Windows Package Manager para instalar
+Python 3.12 en el perfil del usuario.
 
 ## 3. Crear el `.amxd` una sola vez
 
