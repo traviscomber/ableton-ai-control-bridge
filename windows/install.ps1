@@ -34,9 +34,32 @@ if ($sourceFull -ine $targetFull) {
         Copy-Item (Join-Path $SourceRoot $folder) $destination -Recurse -Force
     }
 }
-Copy-Item (Join-Path $SourceRoot "max-for-live\AI-Control-Bridge-Receiver.maxpat") $DeviceDir -Force
-Copy-Item (Join-Path $SourceRoot "max-for-live\bridge_receiver.js") $DeviceDir -Force
-Copy-Item (Join-Path $SourceRoot "max-for-live\device-build-guide.md") $DeviceDir -Force
+function Install-MaxAsset($fileName) {
+    $destination = Join-Path $DeviceDir $fileName
+    $sourceCandidates = @(
+        (Join-Path $SourceRoot "max-for-live\$fileName"),
+        (Join-Path $SourceRoot "Max for Live Device\$fileName")
+    )
+    foreach ($source in $sourceCandidates) {
+        if (Test-Path $source) {
+            if ([IO.Path]::GetFullPath($source) -ine [IO.Path]::GetFullPath($destination)) {
+                Copy-Item $source $destination -Force
+            }
+            return
+        }
+    }
+    $url = "https://raw.githubusercontent.com/traviscomber/ableton-ai-control-bridge/main/max-for-live/$fileName"
+    Write-Host "Downloading missing Max asset: $fileName" -ForegroundColor Yellow
+    try {
+        Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $destination
+    } catch {
+        throw "Could not restore $fileName from GitHub. Check your internet connection and run install.ps1 again. $($_.Exception.Message)"
+    }
+}
+
+Install-MaxAsset "AI-Control-Bridge-Receiver.maxpat"
+Install-MaxAsset "bridge_receiver.js"
+Install-MaxAsset "device-build-guide.md"
 
 function Find-Python {
     $candidates = @()
