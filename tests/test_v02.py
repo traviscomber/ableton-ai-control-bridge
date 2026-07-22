@@ -13,7 +13,7 @@ from ableton_bridge.runner import iter_jsonl
 from ableton_bridge.security import AccessPolicy
 from ableton_bridge.server import BridgeState, load_config, make_handler
 from ableton_bridge.store import CommandStore
-from ableton_bridge.transport import AckListener, UdpTransport
+from ableton_bridge.transport import AckListener, UdpTransport, decode_osc, encode_osc
 
 
 class FakeTransport:
@@ -132,7 +132,7 @@ class VersionTwoTest(unittest.TestCase):
         finally:
             os.unlink(path)
 
-    def test_udp_transport_uses_max_message_terminator(self):
+    def test_udp_transport_uses_osc(self):
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as receiver:
             receiver.bind(("127.0.0.1", 0))
             receiver.settimeout(1)
@@ -140,8 +140,9 @@ class VersionTwoTest(unittest.TestCase):
                 {"type": "set_tempo", "bpm": 126}
             )
             raw, _ = receiver.recvfrom(4096)
-        self.assertTrue(raw.endswith(b";"))
-        self.assertEqual(json.loads(raw[:-1]), {"type": "set_tempo", "bpm": 126})
+        address, value = decode_osc(raw)
+        self.assertEqual(address, "/bridge")
+        self.assertEqual(json.loads(value), {"type": "set_tempo", "bpm": 126})
 
     def test_ack_listener_accepts_max_terminator(self):
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
@@ -156,6 +157,13 @@ class VersionTwoTest(unittest.TestCase):
             sender.sendto(b'{"bridge_id":"abc","ok":true};', ("127.0.0.1", port))
         thread.join(2)
         self.assertEqual(result, {"bridge_id": "abc", "ok": True})
+
+    def test_osc_round_trip(self):
+        packet = encode_osc("/bridge_ack", '{"bridge_id":"abc","ok":true}')
+        self.assertEqual(
+            decode_osc(packet),
+            ("/bridge_ack", '{"bridge_id":"abc","ok":true}'),
+        )
 
 
 if __name__ == "__main__":
