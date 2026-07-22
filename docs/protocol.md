@@ -127,6 +127,30 @@ Stored commands use these states:
 Undo is a bridge control operation. `POST /api/commands/{id}/undo` sends an
 internal `undo` envelope to Max, which invokes Live's undo operation.
 
+## Composition commands (v0.4)
+
+The bridge also supports song-level and clip-level composition operations:
+
+- `start_playback`, `stop_playback`
+- `set_time_signature`, `set_metronome`, `set_song_loop`
+- `create_scene`, `duplicate_scene`, `delete_scene`
+- `duplicate_track`, `delete_track`
+- `set_track_mute`, `set_track_solo`, `stop_track_clips`
+- `launch_clip`, `set_clip_name`, `set_clip_color`, `set_clip_loop`
+
+Examples:
+
+```json
+{"type":"create_scene","name":"DROP","index":2}
+{"type":"set_time_signature","numerator":4,"denominator":4}
+{"type":"set_song_loop","start":0,"length":32,"enabled":true}
+{"type":"set_clip_name","track":0,"clip":0,"name":"Kick — Intro"}
+{"type":"launch_clip","track":0,"clip":0}
+```
+
+These commands can be combined with `create_midi_track` and `create_midi_clip`
+to build an entire Session View arrangement from a reviewed JSONL plan.
+
 ## AI Prompt Contract
 
 When asking an AI to control Ableton through this bridge, request JSON commands only:
