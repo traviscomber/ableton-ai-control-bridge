@@ -30,7 +30,11 @@ Check "Max patch source" (Test-Path (Join-Path $DeviceDir "AI-Control-Bridge-Rec
 Check "Max JavaScript engine" (Test-Path (Join-Path $DeviceDir "bridge_receiver.js")) "Run windows\install.ps1"
 
 $amxd = Get-ChildItem $DeviceDir -Filter "*.amxd" -ErrorAction SilentlyContinue | Select-Object -First 1
-Check "Saved .amxd device" ($null -ne $amxd) "Open the .maxpat in Max for Live and Save As .amxd"
+if ($null -ne $amxd) {
+    Write-Host "[OK]   Saved .amxd device" -ForegroundColor Green
+} else {
+    Write-Host "[TODO] Save the .maxpat as .amxd from Max for Live (one-time manual step)" -ForegroundColor Yellow
+}
 
 try {
     $busy = Get-NetTCPConnection -LocalPort 8765 -State Listen -ErrorAction Stop
