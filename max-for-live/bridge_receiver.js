@@ -162,5 +162,5 @@ function acknowledge(id, ok, result, error) {
     var payload = {bridge_id: id, ok: !!ok};
     if (result !== null) payload.result = result;
     if (error !== null) payload.error = error;
-    outlet(0, JSON.stringify(payload));
+    outlet(0, "/bridge_ack", JSON.stringify(payload));
 }
