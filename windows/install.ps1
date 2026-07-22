@@ -47,6 +47,7 @@ if ($sourceFull -ine $targetFull) {
         "darksco/__init__.py",
         "darksco/song_plan.py",
         "darksco/compiler.py",
+        "darksco/cli.py",
         "tests/test_commands.py",
         "tests/test_darksco.py",
         "tests/test_v02.py",
@@ -160,7 +161,9 @@ if (-not (Test-Path $VenvPython)) {
     if ($LASTEXITCODE -ne 0) { throw "Python could not create the virtual environment." }
 }
 & $VenvPython -m pip install --upgrade pip
+if ($LASTEXITCODE -ne 0) { throw "pip could not be upgraded inside the virtual environment." }
 & $VenvPython -m pip install -e $ProjectRoot
+if ($LASTEXITCODE -ne 0) { throw "The bridge package could not be installed. Review the pip error above and rerun install.ps1." }
 
 Write-Host "[3/6] Creating secure local configuration..." -ForegroundColor Yellow
 $AllowedCommands = @(
