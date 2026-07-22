@@ -23,11 +23,12 @@ def iter_jsonl(path: str):
                 raise ValueError(f"{path}:{line_number}: {exc}") from exc
 
 
-def send(url: str, token: str | None, payload: dict) -> dict:
+def send(url: str, token: str | None, payload: dict | None = None) -> dict:
     headers = {"Content-Type": "application/json"}
     if token:
         headers["X-Bridge-Token"] = token
-    request = urllib.request.Request(url, json.dumps(payload).encode(), headers, method="POST")
+    data = json.dumps(payload).encode() if payload is not None else b"{}"
+    request = urllib.request.Request(url, data, headers, method="POST")
     try:
         with urllib.request.urlopen(request) as response:
             return json.loads(response.read())
@@ -42,6 +43,11 @@ def main() -> None:
     parser.add_argument("--token")
     parser.add_argument("--delay", type=float, default=0.0, help="Seconds between commands.")
     parser.add_argument("--validate-only", action="store_true")
+    parser.add_argument(
+        "--auto-approve",
+        action="store_true",
+        help="Explicit autonomous-session permission: approve each submitted command.",
+    )
     args = parser.parse_args()
     count = 0
     for line_number, command in iter_jsonl(args.path):
@@ -50,6 +56,13 @@ def main() -> None:
             print(f"line {line_number}: valid {command['type']}")
         else:
             result = send(args.url, args.token, command)
+            record = result.get("command", {})
+            if args.auto_approve and record.get("status") == "pending":
+                command_id = record.get("id")
+                if not command_id:
+                    raise RuntimeError("Bridge returned a pending command without an id.")
+                base_url = args.url.rsplit("/command", 1)[0]
+                result = send(f"{base_url}/api/commands/{command_id}/approve", args.token)
             print(json.dumps(result, separators=(",", ":")))
             if args.delay:
                 time.sleep(args.delay)
