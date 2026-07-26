@@ -36,9 +36,11 @@ if ($sourceFull -ine $targetFull) {
 } else {
     Write-Host "Repairing the existing Desktop package from GitHub..." -ForegroundColor Yellow
     $repairFiles = @(
+        "README.md",
         "ableton_bridge/__init__.py",
         "ableton_bridge/cli.py",
         "ableton_bridge/commands.py",
+        "ableton_bridge/preflight.py",
         "ableton_bridge/runner.py",
         "ableton_bridge/security.py",
         "ableton_bridge/server.py",
@@ -50,10 +52,20 @@ if ($sourceFull -ine $targetFull) {
         "darksco/cli.py",
         "examples/darksco/first-autonomous-track.json",
         "examples/darksco/first-autonomous-track.jsonl",
+        "examples/smoke/v0.5-smoke-test.jsonl",
         "tests/test_commands.py",
+        "tests/test_command_coverage.py",
         "tests/test_darksco.py",
+        "tests/test_max_receiver.py",
+        "tests/test_preflight.py",
+        "tests/test_smoke_sequence.py",
         "tests/test_v02.py",
+        "docs/command-coverage.md",
         "docs/darksco.md",
+        "docs/preflight.md",
+        "docs/roadmap-audit.md",
+        "docs/roadmap-execution.md",
+        "docs/sprint-001-status.md",
         "windows/doctor.ps1",
         "windows/start-bridge.ps1",
         "windows/open-device-source.ps1",
@@ -202,7 +214,7 @@ if (-not (Test-Path $ConfigPath)) {
     $existingConfig = Get-Content $ConfigPath | ConvertFrom-Json
     $existingConfig.allow = $AllowedCommands
     $existingConfig | ConvertTo-Json -Depth 4 | Set-Content -Encoding UTF8 $ConfigPath
-    Write-Host "Keeping your token and history; command permissions upgraded to v0.4."
+    Write-Host "Keeping your token, approval setting, and history; command permissions upgraded to the current protocol."
 }
 
 Write-Host "[4/6] Creating easy launchers..." -ForegroundColor Yellow
@@ -228,7 +240,7 @@ $deviceCmd | Set-Content -Encoding ASCII (Join-Path $ProjectRoot "OPEN MAX DEVIC
 Write-Host "[5/6] Running diagnostics..." -ForegroundColor Yellow
 & (Join-Path $WindowsDir "doctor.ps1") -Quiet
 if ($LASTEXITCODE -ne 0) {
-    Write-Warning "The missing .amxd is expected until you complete the one-time Max save step."
+    Write-Warning "Diagnostics found a required installation problem. Review the messages above."
 }
 
 Write-Host "[6/6] Desktop installation complete." -ForegroundColor Green
