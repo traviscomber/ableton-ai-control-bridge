@@ -1,5 +1,6 @@
 name: Migrate roadmap agent names
 
+# Triggered after initial workflow registration.
 on:
   push:
     branches: [main]
