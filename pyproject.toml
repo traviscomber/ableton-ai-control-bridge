@@ -9,6 +9,7 @@ dependencies = []
 ableton-bridge = "ableton_bridge.server:main"
 ableton-bridge-send = "ableton_bridge.cli:main"
 ableton-bridge-run = "ableton_bridge.runner:main"
+ableton-bridge-check = "ableton_bridge.preflight:main"
 darksco-compile = "darksco.cli:main"
 
 [build-system]
