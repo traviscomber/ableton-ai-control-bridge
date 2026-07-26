@@ -1,23 +1,25 @@
 name: Migrate roadmap agent names
 
-# Triggered after initial workflow registration.
 on:
-  push:
+  pull_request:
     branches: [main]
     paths:
-      - .github/workflows/migrate-roadmap-agents.yml
+      - .roadmap-migration-trigger
 
 permissions:
   contents: write
 
 jobs:
   migrate:
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout pull request branch
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update roadmap agent system
         shell: python
@@ -28,29 +30,27 @@ jobs:
           path = Path("roadmap.md")
           text = path.read_text(encoding="utf-8")
 
-          replacements = {
+          for old, new in {
               "Deckard": "Doom",
               "Selene": "Venom",
               "Morticia": "Hela",
               "Raven": "Loki",
               "Lestat": "Thanos",
-          }
-          for old, new in replacements.items():
+          }.items():
               text = text.replace(old, new)
 
           text = re.sub(r"\bK\b", "Bane", text)
-
-          old_chain = "**Director → Music Curator → Visual Director → YouTube Publisher → Growth Analyst → Revenue Operator → Director**"
-          new_chain = "**Darkside → Doom → Venom → Hela → Loki → Bane → Thanos → Doom → Darkside**"
-          text = text.replace(old_chain, new_chain)
-
+          text = text.replace(
+              "**Director → Music Curator → Visual Director → YouTube Publisher → Growth Analyst → Revenue Operator → Director**",
+              "**Darkside → Doom → Venom → Hela → Loki → Bane → Thanos → Doom → Darkside**",
+          )
           text = text.replace(
               "The Director owns priorities and approvals. Specialists may recommend changes but do not override release gates.",
-              "Darkside orchestrates execution and routes work to the minimum required specialists. Doom owns strategic priorities and final approvals. Specialists may recommend changes but do not override release gates."
+              "Darkside orchestrates execution and routes work to the minimum required specialists. Doom owns strategic priorities and final approvals. Specialists may recommend changes but do not override release gates.",
           )
           text = text.replace(
               "The six agents use names drawn from dark cinema characters:",
-              "The seven-agent DARKSCO team uses short internal codenames:"
+              "The seven-agent DARKSCO team uses short internal codenames:",
           )
 
           table_header = "| Agent | Character name | Primary responsibility |\n|---|---|---|"
@@ -60,11 +60,11 @@ jobs:
 
           text = text.replace(
               "These names are internal operating identities. Public-facing attribution should remain DARKSCO unless the Director approves otherwise.",
-              "These names are internal operating identities. Public-facing attribution should remain DARKSCO unless Doom approves otherwise. Darkside coordinates execution but does not replace specialist judgement or Doom's final authority."
+              "These names are internal operating identities. Public-facing attribution should remain DARKSCO unless Doom approves otherwise. Darkside coordinates execution but does not replace specialist judgement or Doom's final authority.",
           )
 
-          agent_scripts_marker = "# 24. Agent Scripts\n"
-          darkside_script = '''# 24. Agent Scripts
+          marker = "# 24. Agent Scripts\n"
+          darkside = '''# 24. Agent Scripts
 
 ## Agent 0 — Darkside, DARKSCO Orchestrator
 
@@ -117,13 +117,12 @@ Return:
 ```
 '''
           if "## Agent 0 — Darkside" not in text:
-              text = text.replace(agent_scripts_marker, darkside_script, 1)
+              text = text.replace(marker, darkside, 1)
 
           text = text.replace(
               "Never allow a specialist to bypass Doom's release gate.",
-              "Never allow a specialist or Darkside to bypass Doom's release gate."
+              "Never allow a specialist or Darkside to bypass Doom's release gate.",
           )
-
           path.write_text(text, encoding="utf-8")
 
       - name: Verify migration
@@ -135,13 +134,13 @@ Return:
           grep -q 'Agent 0 — Darkside' roadmap.md
           grep -q 'Darkside → Doom → Venom → Hela → Loki → Bane → Thanos' roadmap.md
 
-      - name: Commit roadmap and remove temporary workflow
+      - name: Commit migration to pull request branch
         shell: bash
         run: |
           set -euo pipefail
-          rm .github/workflows/migrate-roadmap-agents.yml
+          rm .roadmap-migration-trigger
           git config user.name "DARKSCO Automation"
           git config user.email "actions@users.noreply.github.com"
-          git add roadmap.md .github/workflows/migrate-roadmap-agents.yml
+          git add roadmap.md .roadmap-migration-trigger
           git commit -m "docs: update roadmap to DARKSCO agent team"
-          git push origin main
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
