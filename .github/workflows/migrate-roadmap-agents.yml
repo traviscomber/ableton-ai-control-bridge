@@ -1,0 +1,146 @@
+name: Migrate roadmap agent names
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/migrate-roadmap-agents.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update roadmap agent system
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          path = Path("roadmap.md")
+          text = path.read_text(encoding="utf-8")
+
+          replacements = {
+              "Deckard": "Doom",
+              "Selene": "Venom",
+              "Morticia": "Hela",
+              "Raven": "Loki",
+              "Lestat": "Thanos",
+          }
+          for old, new in replacements.items():
+              text = text.replace(old, new)
+
+          text = re.sub(r"\bK\b", "Bane", text)
+
+          old_chain = "**Director → Music Curator → Visual Director → YouTube Publisher → Growth Analyst → Revenue Operator → Director**"
+          new_chain = "**Darkside → Doom → Venom → Hela → Loki → Bane → Thanos → Doom → Darkside**"
+          text = text.replace(old_chain, new_chain)
+
+          text = text.replace(
+              "The Director owns priorities and approvals. Specialists may recommend changes but do not override release gates.",
+              "Darkside orchestrates execution and routes work to the minimum required specialists. Doom owns strategic priorities and final approvals. Specialists may recommend changes but do not override release gates."
+          )
+          text = text.replace(
+              "The six agents use names drawn from dark cinema characters:",
+              "The seven-agent DARKSCO team uses short internal codenames:"
+          )
+
+          table_header = "| Agent | Character name | Primary responsibility |\n|---|---|---|"
+          darkside_row = "| Orchestrator | **Darkside** | Automatic routing, dependency control, connector coordination, and consolidated execution |"
+          if darkside_row not in text:
+              text = text.replace(table_header, table_header + "\n" + darkside_row)
+
+          text = text.replace(
+              "These names are internal operating identities. Public-facing attribution should remain DARKSCO unless the Director approves otherwise.",
+              "These names are internal operating identities. Public-facing attribution should remain DARKSCO unless Doom approves otherwise. Darkside coordinates execution but does not replace specialist judgement or Doom's final authority."
+          )
+
+          agent_scripts_marker = "# 24. Agent Scripts\n"
+          darkside_script = '''# 24. Agent Scripts
+
+## Agent 0 — Darkside, DARKSCO Orchestrator
+
+### Role
+
+You are Darkside, the workflow operating system for DARKSCO. Convert each request into one explicit objective, route it to the minimum required agents, coordinate connector work, manage dependencies, and consolidate results.
+
+### Routing map
+
+- Strategy, priorities, approvals, and tradeoffs: **Doom**
+- Music, Ableton, catalogue, and sonic quality: **Venom**
+- UI/UX, visual identity, artwork, motion, and thumbnails: **Hela**
+- Publishing, launches, YouTube, messaging, Gmail, and Calendar: **Loki**
+- Analytics, experiments, forecasting, and growth evidence: **Bane**
+- Rights, licensing, pricing, products, partnerships, and revenue: **Thanos**
+
+### Operating rules
+
+1. Define the objective and completion evidence.
+2. Select one primary owner and only necessary support agents.
+3. Route GitHub, Vercel, Supabase, Gmail, and Calendar work through the most specific installed connector or plugin skill.
+4. Sequence work by dependency and risk.
+5. Escalate strategic conflicts and irreversible decisions to Doom.
+6. Return confirmed outcomes, blockers, owners, and the next decision without duplicating specialist reports.
+
+### Operating script
+
+```text
+You are Darkside, the DARKSCO orchestrator.
+
+Convert the request into one explicit objective. Identify required domains, dependencies, connectors, risks, and approval gates. Select the minimum required agents and execute work in dependency order.
+
+Use specialist ownership:
+- Doom: strategy and final approval
+- Venom: music and Ableton
+- Hela: visual and interface
+- Loki: publishing and communications
+- Bane: analytics and evidence
+- Thanos: rights and business
+
+Use the most specific installed GitHub, Vercel, Supabase, Gmail, or Google Calendar capability before connector actions. Do not invoke every agent by default. Do not replace specialist judgement. Escalate final strategic conflicts to Doom.
+
+Return:
+1. Objective
+2. Selected owners
+3. Execution order
+4. Confirmed outcomes
+5. Blockers and risks
+6. Next decision
+```
+'''
+          if "## Agent 0 — Darkside" not in text:
+              text = text.replace(agent_scripts_marker, darkside_script, 1)
+
+          text = text.replace(
+              "Never allow a specialist to bypass Doom's release gate.",
+              "Never allow a specialist or Darkside to bypass Doom's release gate."
+          )
+
+          path.write_text(text, encoding="utf-8")
+
+      - name: Verify migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -Eq '\b(Deckard|Selene|Morticia|Raven|Lestat)\b' roadmap.md
+          ! grep -Eq '\bK\b' roadmap.md
+          grep -q 'Agent 0 — Darkside' roadmap.md
+          grep -q 'Darkside → Doom → Venom → Hela → Loki → Bane → Thanos' roadmap.md
+
+      - name: Commit roadmap and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/migrate-roadmap-agents.yml
+          git config user.name "DARKSCO Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add roadmap.md .github/workflows/migrate-roadmap-agents.yml
+          git commit -m "docs: update roadmap to DARKSCO agent team"
+          git push origin main
