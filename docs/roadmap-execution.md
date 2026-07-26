@@ -3,6 +3,7 @@
 Status: **ACTIVE**  
 Repository baseline: **Ableton AI Control Bridge v0.4.2 technical beta**  
 Roadmap horizon: **90 days**  
+Current sprint: **Sprint 002 — First Track Production Loop**  
 Primary orchestrator: **Darkside**  
 Final strategic authority: **Doom**
 
@@ -10,7 +11,7 @@ This document converts the strategic vision in [`../roadmap.md`](../roadmap.md) 
 
 ## 1. Current Baseline
 
-The repository already provides:
+The repository currently provides:
 
 - Local Python HTTP bridge.
 - Validated JSON command protocol.
@@ -18,334 +19,305 @@ The repository already provides:
 - CLI and JSONL runner.
 - Dry-run and approval controls.
 - Sequential ACK execution.
-- Track references that protect the Max for Live receiver track.
-- SongPlan compilation for scene-based composition.
-- Unit tests and Windows installation workflow.
+- Stable track references that protect the Max for Live receiver track.
+- SongPlan validation and deterministic compilation.
+- Windows installer, diagnostics, preflight, and launcher source.
+- Night Protocol 001 brief, SongPlan, command builder, arrangement revision, and review checklist.
 
-Primary unresolved product constraint:
+Confirmed source-level progress:
 
-- A tested and distributable `.amxd` receiver must be built and verified inside Max for Live.
+- Explicit SongPlan `track_ref` values are preserved.
+- Night Protocol 001 compiles into a validated, non-destructive command sequence.
+- The first production package is stored under `production/night-protocol-001/`.
+- Five transitions, microvariation rules, and a signature event are specified for the v0.2 production pass.
+
+Primary unresolved constraints:
+
+1. The receiver `.amxd` has not been rebuilt and packaged under a verified Max for Live toolchain.
+2. Night Protocol 001 has not yet been verified through a complete Ableton runtime execution.
+3. No review WAV, stems, mix, master, or final rights record exists yet.
+4. The complete automated test suite has not been rerun in this connector-only environment.
 
 ## 2. Operating Team
 
 | Owner | Authority | Immediate responsibility |
 |---|---|---|
-| Darkside | Orchestration | Route work, maintain dependencies, consolidate status |
+| Darkside | Orchestration | Maintain dependencies, sprint state, evidence, and handoffs |
 | Doom | Strategy | Approve scope, priorities, release gates, and major tradeoffs |
-| Venom | Music and Ableton | Validate musical workflows, SongPlan quality, device behavior |
-| Hela | Visual and interface | Define operator UI, visual system, screenshots, usability QA |
-| Loki | Publishing | Documentation, release notes, launch messaging, calendar |
-| Bane | Intelligence | Test evidence, adoption metrics, performance baselines |
-| Thanos | Business and rights | Licensing, ownership records, packaging, commercial readiness |
-
-The retired names Deckard, Selene, Morticia, Raven, K, and Lestat remain historical references only and must be replaced when `roadmap.md` is refactored.
+| Venom | Music and Ableton | Musical briefs, arrangements, sound identity, and listening approval |
+| Ultron | Ableton engineering | Bridge reliability, command validation, receiver compatibility, runtime evidence |
+| Hela | Visual and interface | Visual system, operator experience, screenshots, and audiovisual alignment |
+| Loki | Publishing | Documentation, version records, release package, and launch operations |
+| Bane | Intelligence | Test evidence, comparison metrics, and review baselines |
+| Thanos | Business and rights | Provenance, licensing, ownership, and commercial readiness |
 
 ## 3. Priority Order
 
-1. **Make the bridge verifiably reliable in Ableton Live.**
-2. **Make complete track creation repeatable and reviewable.**
-3. **Make installation and operation understandable to a non-developer.**
-4. **Add intelligence without weakening approval, audit, and safety controls.**
-5. **Prepare a distributable product and DARKSCO production system.**
+1. **Complete one verified Night Protocol 001 production loop.**
+2. **Close the v0.5 Ableton reliability gate.**
+3. **Convert the Night production lessons into reusable composition modules.**
+4. **Create Midday System 001 and Morning Transmission 001 as distinct reference SongPlans.**
+5. **Reduce operation to a clear non-developer workflow.**
+6. **Prepare the catalogue, visual system, rights records, and release package.**
 
 ## 4. Phase 0 — Activation and Audit
 
-Target: Days 1–3
+Status: **SUBSTANTIALLY COMPLETE / EVIDENCE CLEANUP OPEN**
 
-### Deliverables
+Completed or source-documented:
 
-- [ ] Confirm all tests pass on the supported Python versions.
-- [ ] Inventory command coverage against the documented protocol.
-- [ ] Identify commands implemented in Python but missing in Max for Live.
-- [ ] Identify Max receiver operations without automated or manual verification evidence.
-- [ ] Confirm the Windows installer from a clean environment.
-- [ ] Record current limitations and known failure modes.
-- [ ] Establish one release checklist and one evidence folder.
+- Command coverage inventory.
+- Max receiver parity review.
+- Preflight diagnostics.
+- Windows repair-manifest improvements.
+- Deterministic smoke-test assets.
+- Known limitation tracking.
+- Sprint and roadmap records.
 
-### Owners
+Still required:
 
-- Darkside: execution board and dependency map.
-- Venom: Ableton and musical workflow audit.
-- Bane: test baseline and evidence standard.
-- Loki: documentation inconsistencies.
-- Doom: approve v0.5 scope.
-
-### Exit gate
-
-Phase 0 passes when every supported command has one of these statuses:
-
-- verified end-to-end,
-- verified in dry-run only,
-- implemented but unverified,
-- missing,
-- intentionally deferred.
+- [ ] Run the complete automated test suite on the supported Windows/Python environment.
+- [ ] Record the exact test command, environment, and results.
+- [ ] Classify every supported command as runtime-verified, dry-run verified, implemented-unverified, missing, or deferred.
+- [ ] Consolidate release evidence into one indexed location.
 
 ## 5. Phase 1 — Reliable Ableton Device
 
-Target: Days 4–14  
-Release target: **v0.5**
+Release target: **v0.5**  
+Status: **ACTIVE IN PARALLEL**
 
 ### Product objective
 
 A new user can install the bridge, load the receiver, execute a validated sequence, and confirm the result without editing source files.
 
-### Workstreams
+### Receiver packaging
 
-#### Receiver packaging
+- [ ] Preserve the current working `.amxd` as the baseline.
+- [ ] Inspect freeze state, JavaScript embedding, paths, dependencies, and version metadata.
+- [ ] Build a versioned `AI Control Bridge Receiver.amxd` inside a compatible Max for Live environment.
+- [ ] Reopen the packaged device in Ableton Live 11.
+- [ ] Verify protocol and device version reporting.
 
-- [ ] Build `AI Control Bridge Receiver.amxd` inside Max for Live.
-- [ ] Freeze required JavaScript dependencies when appropriate.
-- [ ] Verify installation on Ableton Live 11.
-- [ ] Test Live 12 when available; document unsupported differences.
-- [ ] Add device version and protocol version reporting.
+Owner: **Ultron**  
+Musical workflow review: **Venom**
 
-Owner: Venom  
-Support: Loki
+### End-to-end verification
 
-#### End-to-end verification
+- [x] Create deterministic smoke-test and production SongPlans.
+- [ ] Execute Night Protocol 001 using sequential ACK mode.
+- [ ] Verify tempo, scenes, tracks, clips, notes, names, colors, volume, and pan.
+- [ ] Confirm the receiver track is not moved, renamed, or deleted.
+- [ ] Complete the smoke test twice without manual repair.
+- [ ] Record expected versus observed state.
+- [ ] Publish recovery instructions for interrupted or partial execution.
 
-- [ ] Create a deterministic smoke-test SongPlan.
-- [ ] Execute the test using ACK mode.
-- [ ] Verify tempo, scenes, tracks, clips, notes, names, colors, and mixer state.
-- [ ] Capture expected and observed results.
-- [ ] Add recovery instructions for partial execution.
+Evidence owner: **Bane**
 
-Owner: Venom  
-Evidence owner: Bane
+### Installation usability
 
-#### Installation usability
-
-- [ ] Reduce Windows setup to one documented path.
-- [ ] Add preflight checks for Python, ports, token, receiver, and Live connection.
-- [ ] Make failures actionable rather than generic.
-- [ ] Add one operator checklist for first launch.
-
-Owner: Loki  
-Interface review: Hela
+- [x] Reduce Windows setup to one primary documented path.
+- [x] Add configuration, port, token, and health diagnostics.
+- [x] Add launcher source and Windows build workflow.
+- [ ] Compile and runtime-test the launcher executable on Windows.
+- [ ] Verify a clean installation from an unconfigured Windows environment.
 
 ### v0.5 release gate
 
-- `.amxd` built and tested.
-- Clean Windows installation verified.
-- Smoke test completed twice without manual repair.
-- No undocumented destructive command.
-- Recovery and backup instructions published.
+- [ ] Packaged `.amxd` rebuilt and tested.
+- [ ] Clean Windows installation verified.
+- [ ] Smoke test completed twice without manual repair.
+- [x] No undocumented destructive command in the Night Protocol plan.
+- [ ] Recovery and backup instructions runtime-validated.
 
 ## 6. Phase 2 — DARKSCO Composition Engine
 
-Target: Days 15–30  
-Release target: **v0.6**
+Release target: **v0.6**  
+Status: **ACTIVE**
 
 ### Product objective
 
-Convert a musical brief into a coherent, editable Ableton session plan with explicit structure, references, validation, and review checkpoints.
+Convert a musical brief into a coherent, editable Ableton session plan with explicit structure, references, validation, review checkpoints, and rights metadata.
 
-### Workstreams
+### SongPlan schema
 
-#### SongPlan schema
-
-- [ ] Version the SongPlan schema.
-- [ ] Add explicit project metadata and creative intent.
-- [ ] Add Morning, Noon, Night, and bridge classifications.
+- [x] Version the SongPlan schema as `darksco.song-plan/1.0`.
+- [x] Add project metadata and creative intent references.
+- [x] Add state classification for Night.
+- [x] Preserve explicit stable track references.
+- [x] Add rights and source placeholders.
+- [ ] Add Morning, Noon, and bridge classifications as tested reference plans.
 - [ ] Add arrangement roles: opener, builder, transition, peak, reset, descent, closer.
-- [ ] Add deterministic seeds or generation records where applicable.
-- [ ] Add rights and source metadata fields.
+- [ ] Add deterministic seeds or generation records where generation occurs.
 
-Owner: Venom  
-Rights review: Thanos
+Owner: **Venom**  
+Rights review: **Thanos**
 
-#### Musical intelligence
+### Musical intelligence
 
-- [ ] Add reusable rhythm, bass, harmony, texture, and transition modules.
-- [ ] Add constraint validation for tempo, register, density, velocity, and repetition.
-- [ ] Add variation rules that prevent mechanical copy-paste.
+- [ ] Add reusable rhythm modules.
+- [ ] Add reusable bass modules.
+- [ ] Add reusable motif and harmony modules.
+- [ ] Add reusable atmosphere and texture modules.
+- [x] Define the first reusable transition grammar from Night Protocol 001.
+- [x] Define 4-, 8-, and 16-bar microvariation rules.
+- [ ] Encode transition and variation modules in machine-readable form.
+- [ ] Add density, velocity, register, repetition, and low-end constraints.
 - [ ] Add state-specific production profiles for Morning, Noon, and Night.
-- [ ] Add a musical quality report before compilation.
+- [ ] Generate a musical quality report before compilation.
 
-Owner: Venom
+Owner: **Venom**  
+Technical implementation: **Ultron**
 
-#### Safe execution planning
+### Safe execution planning
 
-- [ ] Generate a human-readable plan before JSONL.
-- [ ] Show command count and estimated execution scope.
-- [ ] Flag destructive or high-impact actions.
-- [ ] Support validate, approve, execute, pause, resume, and abort states.
-- [ ] Preserve an immutable execution log.
+- [x] Generate a human-readable production plan before execution.
+- [x] Show expected command scope and destructive-action status.
+- [x] Validate every generated command before execution.
+- [ ] Support explicit pause, resume, and abort states.
+- [ ] Persist resumable execution checkpoints.
+- [ ] Preserve an immutable execution evidence record.
 
-Owner: Darkside  
-Evidence: Bane
+Owner: **Darkside**  
+Evidence: **Bane**
 
 ### v0.6 release gate
 
-- Three reference SongPlans compile successfully.
-- Each state produces a structurally distinct result.
-- Every generated command validates before execution.
-- Session creation can be resumed after interruption.
-- Rights and generation metadata are retained.
+- [x] Night reference SongPlan compiles successfully.
+- [ ] Midday reference SongPlan compiles successfully.
+- [ ] Morning reference SongPlan compiles successfully.
+- [ ] Each state produces a structurally distinct result.
+- [x] Night generated commands validate before execution.
+- [ ] Session creation can resume after interruption.
+- [ ] Rights and generation metadata are retained through the full production loop.
 
 ## 7. Phase 3 — Operator Experience
 
-Target: Days 31–45  
-Release target: **v0.7**
+Release target: **v0.7**  
+Status: **EARLY FOUNDATION**
 
-### Product objective
-
-A producer can operate DARKSCO without memorizing CLI flags or raw JSON.
-
-### Scope
-
-- [ ] Design a local operator dashboard.
-- [ ] Show bridge, Ableton, receiver, token, and port status.
-- [ ] Load and inspect SongPlans.
+- [x] Add a simple Windows launcher source.
+- [x] Display bridge and receiver readiness states.
+- [ ] Compile and test the launcher executable on Windows.
+- [ ] Load and inspect SongPlans from the operator interface.
 - [ ] Display approval queue and high-impact warnings.
 - [ ] Show execution progress and ACK state.
 - [ ] Provide pause, resume, abort, and retry controls.
-- [ ] Display structured logs and export evidence.
-- [ ] Preserve CLI parity for automation.
+- [ ] Export structured logs and evidence.
+- [ ] Preserve CLI parity.
 
-Owner: Hela  
-Technical routing: Darkside  
-Workflow validation: Venom
-
-### v0.7 release gate
-
-- Primary workflows require no terminal use after installation.
-- All interface actions map to documented protocol operations.
-- Error states include a recommended corrective action.
-- Screenshots and operator documentation are complete.
+Owner: **Hela**  
+Technical routing: **Ultron and Darkside**  
+Workflow validation: **Venom**
 
 ## 8. Phase 4 — Agent and MCP Layer
 
-Target: Days 46–60  
-Release target: **v0.8**
+Release target: **v0.8**  
+Status: **PLANNED**
 
-### Product objective
-
-Allow ChatGPT and other agents to plan, inspect, and execute controlled Ableton workflows through explicit tools rather than unrestricted machine access.
-
-### Scope
-
-- [ ] Define a stable MCP tool surface over the bridge.
-- [ ] Separate read tools, planning tools, validation tools, and execution tools.
+- [ ] Define stable read, planning, validation, and execution tools.
 - [ ] Require confirmation for destructive or irreversible operations.
-- [ ] Add session-state inspection before planning.
+- [ ] Inspect session state before planning.
 - [ ] Add idempotency keys and duplicate-action protection.
 - [ ] Add scoped tokens and command allowlists.
-- [ ] Add structured tool errors suitable for agent recovery.
-- [ ] Add example agent workflows using Venom and Darkside.
-
-Owner: Darkside  
-Musical policy: Venom  
-Security and commercial review: Thanos
-
-### v0.8 release gate
-
-- MCP tools cannot bypass protocol validation.
-- Read-only inspection works without execution permission.
-- Duplicate requests do not duplicate destructive actions.
-- Every action is attributable and logged.
-- Approval policy is tested with permitted and denied actions.
+- [ ] Add structured errors suitable for agent recovery.
+- [ ] Add Venom and Darkside reference workflows.
 
 ## 9. Phase 5 — Production Catalogue Pilot
 
-Target: Days 61–75  
-Release target: **v0.9**
-
-### Product objective
-
-Use the system to create a controlled pilot catalogue rather than isolated technical demos.
+Release target: **v0.9**  
+Status: **STARTED EARLY TO VALIDATE THE SYSTEM**
 
 ### Pilot catalogue
 
 - [ ] Morning Transmission 001.
 - [ ] Midday System 001.
-- [ ] Night Protocol 001.
+- [~] Night Protocol 001 — source package complete; Ableton production and review pending.
 - [ ] Complete Daily Cycle 001.
 
-### Required records
+### Night Protocol 001 records
 
-- [ ] SongPlan and source brief.
-- [ ] Generation and editing history.
-- [ ] Ableton project and exported stems.
+- [x] Source brief.
+- [x] Versioned SongPlan.
+- [x] Command builder and source validation record.
+- [x] Transition and microvariation plan.
+- [x] Production review checklist.
+- [ ] Verified Ableton project.
+- [ ] Arrangement View production version.
+- [ ] Review WAV.
+- [ ] Exported stems.
 - [ ] Mix and master versions.
-- [ ] Rights and sample records.
+- [ ] Complete rights and sample record.
 - [ ] Visual concept and source records.
 - [ ] Release metadata.
-- [ ] Quality-gate decision.
-
-Owners:
-
-- Venom: music.
-- Hela: visual system.
-- Loki: release package.
-- Bane: performance baseline.
-- Thanos: rights and commercial readiness.
-- Doom: final approval.
+- [ ] Venom approval and Doom quality-gate decision.
 
 ## 10. Phase 6 — v1.0 Product Readiness
 
-Target: Days 76–90  
-Release target: **v1.0**
+Release target: **v1.0**  
+Status: **PLANNED**
 
-### Product objective
+Requirements remain:
 
-Ship a stable, documented, auditable Ableton AI production bridge suitable for controlled public use.
+- Supported-platform matrix.
+- Installable Max for Live device.
+- Stable versioned protocol and SongPlan schema.
+- Automated and documented Ableton runtime tests.
+- Local operator interface.
+- MCP tool layer.
+- Audit logs and recovery procedures.
+- Security and token documentation.
+- Licensing and contributor records.
+- Four completed pilot releases.
+- Release notes, migration notes, and known limitations.
 
-### v1.0 requirements
+## 11. Current Sprint — Sprint 002
 
-- [ ] Supported-platform matrix.
-- [ ] Installable Max for Live device.
-- [ ] Stable versioned protocol.
-- [ ] Stable versioned SongPlan schema.
-- [ ] Automated tests and documented manual Ableton tests.
-- [ ] Local operator interface.
-- [ ] MCP tool layer.
-- [ ] Audit logs and recovery procedures.
-- [ ] Security and token documentation.
-- [ ] Licensing and contributor records.
-- [ ] Four completed pilot releases.
-- [ ] Release notes, migration notes, and known limitations.
-
-### Final gate
-
-Doom chooses one outcome:
-
-- **GO** — publish v1.0.
-- **REVISE** — fix a bounded list of release blockers.
-- **DELAY** — major reliability, rights, or product risks remain.
-
-## 11. Current Sprint — Sprint 001
-
-Duration: 7 days  
-Objective: establish a verified baseline and lock the v0.5 scope.
+Duration: **7 days**  
+Objective: **complete the first Night Protocol production loop and extract reusable composition rules without weakening the v0.5 reliability gate.**
 
 | ID | Owner | Task | Completion evidence |
 |---|---|---|---|
-| S1-01 | Bane | Run the complete automated test suite | Test command, environment, and results recorded |
-| S1-02 | Venom | Audit protocol commands against Max receiver implementation | Command coverage matrix |
-| S1-03 | Venom | Define deterministic Ableton smoke-test session | SongPlan, JSONL, and expected state |
-| S1-04 | Loki | Audit installation and first-run documentation | Prioritized documentation defects |
-| S1-05 | Hela | Review first-run operator experience | Usability findings with severity |
-| S1-06 | Thanos | Define rights and provenance fields required in SongPlan | Approved metadata checklist |
-| S1-07 | Darkside | Consolidate evidence and dependencies | Sprint status and blocker report |
-| S1-08 | Doom | Approve exact v0.5 release scope | GO, REVISE, DELAY, or REJECT decision |
+| S2-01 | Ultron | Execute Night Protocol 001 in a disposable Ableton Set | ACK log and observed-state record |
+| S2-02 | Venom | Implement five transitions and the signature event | Arrangement v0.3 and review WAV |
+| S2-03 | Venom | Assign deliberate sounds to all eight production tracks | Production v0.2 Ableton Set |
+| S2-04 | Bane | Record runtime metrics and structured listening notes | Completed review checklist and comparison report |
+| S2-05 | Hela | Define the Night Protocol visual environment and transition map | Visual direction document |
+| S2-06 | Thanos | Complete sample, device, and contributor provenance | Rights record with no unknown sources |
+| S2-07 | Loki | Establish versioned production folders and release metadata shell | Indexed production package |
+| S2-08 | Ultron | Inspect the current `.amxd` baseline when provided | Dependency, freeze-state, and compatibility report |
+| S2-09 | Darkside | Encode reusable transition and variation modules | Module specification linked to Night evidence |
+| S2-10 | Doom | Review the first production WAV | GO, REVISE, DELAY, or REJECT decision |
+
+### Sprint 002 exit gate
+
+Sprint 002 passes when:
+
+- Night Protocol executes successfully in Ableton with complete ACK evidence.
+- The receiver track remains untouched.
+- Five transitions and the signature event are implemented.
+- A review WAV is exported.
+- Rights and source records contain no unknown material.
+- Reusable transition and variation rules are documented.
+- Venom completes a listening review.
+- Doom records a formal decision.
 
 ## 12. Definition of Done
 
 A task is done only when:
 
-- The output exists in the repository or linked evidence location.
-- The result has been verified, not merely implemented.
-- Documentation is updated.
-- Known limitations are recorded.
+- The output exists in the repository or indexed evidence location.
+- The result is verified at the correct evidence level.
+- Documentation and known limitations are updated.
 - The responsible owner approves the result.
 - Required tests pass.
 - A follow-up owner is assigned when work remains.
 
+Source implementation is not equivalent to Ableton runtime verification. A generated SongPlan is not equivalent to a finished track.
+
 ## 13. Change Control
 
-- Darkside maintains execution status.
-- Doom approves changes to phase objectives or release gates.
+- Darkside maintains execution status and dependencies.
+- Doom approves changes to phase objectives and release gates.
 - Specialists may revise tasks inside their domain without changing strategic scope.
-- Any change affecting rights, destructive behavior, compatibility, or public promises requires explicit review.
-- Completed work should be committed with a scoped message and evidence reference.
+- Rights, destructive behavior, compatibility, and public promises require explicit review.
+- Completed work must be committed with scoped messages and evidence references.
