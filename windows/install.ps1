@@ -60,6 +60,7 @@ if ($sourceFull -ine $targetFull) {
         "tests/test_preflight.py",
         "tests/test_smoke_sequence.py",
         "tests/test_v02.py",
+        "tests/test_windows_configuration.py",
         "docs/command-coverage.md",
         "docs/darksco.md",
         "docs/preflight.md",
