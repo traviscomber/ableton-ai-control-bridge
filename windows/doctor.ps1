@@ -31,6 +31,8 @@ Check "Max JavaScript engine" (Test-Path (Join-Path $DeviceDir "bridge_receiver.
 
 $configValid = $false
 $config = $null
+$httpHost = "127.0.0.1"
+$httpPort = 8765
 if (Test-Path $ConfigPath) {
     try {
         $config = Get-Content $ConfigPath -Raw | ConvertFrom-Json
@@ -39,7 +41,9 @@ if (Test-Path $ConfigPath) {
         $configValid = $missingFields.Count -eq 0
         Check "Configuration schema" $configValid ("Missing field(s): " + ($missingFields -join ", "))
         if ($configValid) {
-            Check "Local HTTP binding" ($config.host -eq "127.0.0.1" -or $config.host -eq "localhost") "Expected a loopback-only HTTP host"
+            $httpHost = [string]$config.host
+            $httpPort = [int]$config.port
+            Check "Local HTTP binding" ($httpHost -eq "127.0.0.1" -or $httpHost -eq "localhost") "Expected a loopback-only HTTP host"
             Check "Local UDP target" ($config.udp_host -eq "127.0.0.1" -or $config.udp_host -eq "localhost") "Expected a loopback-only Max receiver host"
             Check "Local ACK listener" ($config.ack_host -eq "127.0.0.1" -or $config.ack_host -eq "localhost") "Expected a loopback-only ACK host"
             Check "Authentication token" (-not [string]::IsNullOrWhiteSpace([string]$config.token)) "Token is empty"
@@ -59,11 +63,11 @@ if ($null -ne $amxd) {
 
 $bridgeRunning = $false
 try {
-    $busy = Get-NetTCPConnection -LocalPort 8765 -State Listen -ErrorAction Stop
+    $busy = Get-NetTCPConnection -LocalPort $httpPort -State Listen -ErrorAction Stop
     $bridgeRunning = $null -ne $busy
-    Write-Host "[INFO] HTTP port 8765 is active; checking bridge health." -ForegroundColor Yellow
+    Write-Host "[INFO] HTTP port $httpPort is active; checking bridge health." -ForegroundColor Yellow
 } catch {
-    Write-Host "[OK]   HTTP port 8765 is available" -ForegroundColor Green
+    Write-Host "[OK]   HTTP port $httpPort is available" -ForegroundColor Green
 }
 
 if (Test-Path $venvPython) {
@@ -71,7 +75,8 @@ if (Test-Path $venvPython) {
     Check "Python test suite" ($LASTEXITCODE -eq 0) "Tests failed"
 
     if ($configValid) {
-        $preflightArgs = @("-m", "ableton_bridge.preflight", "--config", $ConfigPath, "--json")
+        $healthUrl = "http://${httpHost}:${httpPort}/health"
+        $preflightArgs = @("-m", "ableton_bridge.preflight", "--config", $ConfigPath, "--health-url", $healthUrl, "--json")
         if ($bridgeRunning) { $preflightArgs += "--require-receiver" }
         $preflightOutput = & $venvPython @preflightArgs 2>&1
         $preflightExit = $LASTEXITCODE
