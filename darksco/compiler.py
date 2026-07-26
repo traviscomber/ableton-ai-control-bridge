@@ -19,7 +19,7 @@ def compile_song_plan(plan: dict) -> list[dict]:
         section_indexes[section["id"]] = index
         commands.append({"type": "create_scene", "name": section.get("name", section["id"]), "index": index})
     for track_index, track in enumerate(plan.get("tracks", [])):
-        track_ref = "darksco:" + str(track.get("id", track_index))
+        track_ref = str(track.get("track_ref", "darksco:" + str(track.get("id", track_index))))
         commands.append({
             "type": "create_midi_track" if track.get("kind", "midi") == "midi" else "create_audio_track",
             "name": track.get("name", track.get("id", f"Track {track_index + 1}")),
