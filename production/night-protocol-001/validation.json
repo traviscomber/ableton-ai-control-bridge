@@ -1,0 +1,23 @@
+{
+  "song_plan_valid": true,
+  "commands_valid": true,
+  "command_count": 200,
+  "destructive_commands": [],
+  "track_refs": [
+    "night_kick",
+    "night_sub",
+    "night_perc_main",
+    "night_perc_detail",
+    "night_motif",
+    "night_atmos",
+    "night_impact",
+    "night_texture"
+  ],
+  "sections": 6,
+  "tracks": 8,
+  "midi_clips": 42,
+  "notes": 118,
+  "validation_level": "SongPlan and command validation executed locally against repository-compatible rules",
+  "runtime_status": "not executed in Ableton",
+  "next_gate": "Run BUILD COMMANDS.cmd, then execute commands.jsonl with --auto-approve --wait-ack in a disposable Ableton Set"
+}
