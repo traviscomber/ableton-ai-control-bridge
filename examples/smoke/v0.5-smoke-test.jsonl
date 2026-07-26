@@ -1,0 +1,17 @@
+{"type":"set_tempo","bpm":120}
+{"type":"set_time_signature","numerator":4,"denominator":4}
+{"type":"set_metronome","enabled":false}
+{"type":"set_song_loop","start":0,"length":8,"enabled":true}
+{"type":"create_scene","name":"DARKSCO SMOKE 001"}
+{"type":"create_midi_track","name":"DARKSCO Smoke MIDI","track_ref":"smoke_midi"}
+{"type":"set_track_volume","track_ref":"smoke_midi","volume":0.7}
+{"type":"set_track_pan","track_ref":"smoke_midi","pan":0}
+{"type":"set_track_mute","track_ref":"smoke_midi","muted":false}
+{"type":"set_track_solo","track_ref":"smoke_midi","soloed":false}
+{"type":"create_midi_clip","track_ref":"smoke_midi","clip":0,"bar":1,"beats":8,"notes":[{"pitch":36,"start":0,"duration":0.25,"velocity":100},{"pitch":42,"start":1,"duration":0.25,"velocity":88},{"pitch":36,"start":2,"duration":0.25,"velocity":100},{"pitch":46,"start":3,"duration":0.25,"velocity":92},{"pitch":36,"start":4,"duration":0.25,"velocity":100},{"pitch":42,"start":5,"duration":0.25,"velocity":88},{"pitch":36,"start":6,"duration":0.25,"velocity":100},{"pitch":46,"start":7,"duration":0.25,"velocity":92}]}
+{"type":"set_clip_name","track_ref":"smoke_midi","clip":0,"name":"DARKSCO Smoke Pattern"}
+{"type":"set_clip_color","track_ref":"smoke_midi","clip":0,"color":16733440}
+{"type":"set_clip_loop","track_ref":"smoke_midi","clip":0,"start":0,"length":8,"enabled":true}
+{"type":"launch_clip","track_ref":"smoke_midi","clip":0}
+{"type":"stop_track_clips","track_ref":"smoke_midi"}
+{"type":"stop_all_clips"}
