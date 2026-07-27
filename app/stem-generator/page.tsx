@@ -80,8 +80,8 @@ function WaveformBar({ active, color }: { active: boolean; color: string }) {
     <div className="flex items-end gap-px h-8">
       {Array.from({ length: 24 }).map((_, i) => {
         const height = active
-          ? 20 + Math.abs(Math.sin(i * 1.1)) * 10 + Math.abs(Math.cos(i * 0.7)) * 6
-          : 4 + Math.abs(Math.sin(i * 0.9)) * 4;
+          ? Math.round(20 + Math.abs(Math.sin(i * 1.1)) * 10 + Math.abs(Math.cos(i * 0.7)) * 6)
+          : Math.round(4 + Math.abs(Math.sin(i * 0.9)) * 4);
         return (
           <div
             key={i}
