@@ -6,10 +6,14 @@ import type {
   CommandStatus,
 } from "./types";
 
-// Always go through the Next.js server-side proxy so the browser never
-// needs a direct connection to localhost:8765 (CORS / network isolation).
-// The proxy forwards requests to BRIDGE_URL (default http://127.0.0.1:8765).
-const BRIDGE_BASE = "/api/bridge";
+// Call the bridge DIRECTLY from the browser at 127.0.0.1:8765.
+// The v0 preview runs on Vercel — its server cannot reach your local machine.
+// Only the browser tab (which IS on your machine) can reach localhost:8765.
+// NEXT_PUBLIC_BRIDGE_URL lets you override this for other environments.
+const BRIDGE_BASE =
+  (typeof window !== "undefined"
+    ? process.env.NEXT_PUBLIC_BRIDGE_URL
+    : undefined) ?? "http://127.0.0.1:8765";
 
 function bridgeHeaders(): HeadersInit {
   return { "Content-Type": "application/json" };
