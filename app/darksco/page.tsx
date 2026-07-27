@@ -53,7 +53,7 @@ export default function DarkscoPage() {
                         <Clock className="w-2.5 h-2.5" /> {project.duration}
                       </span>
                     )}
-                    <span className="text-[10px] text-muted-foreground font-mono">
+                    <span className="text-[10px] text-muted-foreground font-mono" suppressHydrationWarning>
                       Updated {new Date(project.updatedAt).toLocaleString("en-US", {
                         month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
                       })}

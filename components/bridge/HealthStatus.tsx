@@ -15,7 +15,7 @@ function MetricRow({ label, value, accent }: { label: string; value: string; acc
   return (
     <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <span className={cn("text-xs font-mono", accent ? "text-brand" : "text-foreground")}>
+      <span suppressHydrationWarning className={cn("text-xs font-mono", accent ? "text-brand" : "text-foreground")}>
         {value}
       </span>
     </div>

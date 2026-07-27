@@ -8,23 +8,25 @@ import { fetchHealth } from "@/lib/bridge-client";
 import type { BridgeHealth } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-const MOCK_HEALTH: BridgeHealth = {
-  ok: true,
-  version: "0.4.2",
-  dry_run: false,
-  approval_required: true,
-  authentication_required: true,
-  allowed_commands: [
-    "set_tempo", "launch_scene", "stop_all_clips", "set_track_volume",
-    "set_track_pan", "set_macro", "create_midi_clip", "create_audio_track",
-    "create_midi_track", "arm_track", "start_playback", "stop_playback",
-    "set_time_signature", "set_metronome",
-  ],
-  udp_target: "127.0.0.1:9001",
-  ack_listener: "127.0.0.1:9002",
-  max_receiver_seen: true,
-  last_ack_at: new Date(Date.now() - 45000).toISOString(),
-};
+function makeMockHealth(): BridgeHealth {
+  return {
+    ok: true,
+    version: "0.4.2",
+    dry_run: false,
+    approval_required: true,
+    authentication_required: true,
+    allowed_commands: [
+      "set_tempo", "launch_scene", "stop_all_clips", "set_track_volume",
+      "set_track_pan", "set_macro", "create_midi_clip", "create_audio_track",
+      "create_midi_track", "arm_track", "start_playback", "stop_playback",
+      "set_time_signature", "set_metronome",
+    ],
+    udp_target: "127.0.0.1:9001",
+    ack_listener: "127.0.0.1:9002",
+    max_receiver_seen: true,
+    last_ack_at: new Date(Date.now() - 45000).toISOString(),
+  };
+}
 
 const QUICK_COMMANDS = [
   {
@@ -53,7 +55,7 @@ const QUICK_COMMANDS = [
 ];
 
 export default function HealthPage() {
-  const [health, setHealth] = useState<BridgeHealth | null>(MOCK_HEALTH);
+  const [health, setHealth] = useState<BridgeHealth | null>(makeMockHealth);
   const [healthError, setHealthError] = useState<string | null>(null);
   const [isMockMode, setIsMockMode] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);

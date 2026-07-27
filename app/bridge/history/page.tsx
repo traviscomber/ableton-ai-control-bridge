@@ -47,7 +47,7 @@ const ALL_STATUSES: CommandStatus[] = [
 ];
 
 export default function HistoryPage() {
-  const [commands, setCommands] = useState<BridgeCommand[]>(makeMockHistory());
+  const [commands, setCommands] = useState<BridgeCommand[]>(makeMockHistory);
   const [isMockMode, setIsMockMode] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [search, setSearch] = useState("");

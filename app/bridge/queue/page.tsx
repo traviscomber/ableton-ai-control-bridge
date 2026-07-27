@@ -10,69 +10,74 @@ import type { BridgeCommand, BridgeHealth } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 // ─── Mock data for offline preview ──────────────────────────────────────────
-const MOCK_PENDING: BridgeCommand[] = [
-  {
-    id: "cmd-a1b2c3d4",
-    command_type: "set_tempo",
-    payload: { type: "set_tempo", bpm: 132 },
-    status: "pending",
-    source: "127.0.0.1",
-    created_at: new Date(Date.now() - 15000).toISOString(),
-    updated_at: new Date(Date.now() - 15000).toISOString(),
-  },
-  {
-    id: "cmd-b2c3d4e5",
-    command_type: "create_midi_clip",
-    payload: {
-      type: "create_midi_clip",
-      track: 1,
-      clip: 0,
-      bar: 1,
-      beats: 8,
-      notes: [
-        { pitch: 41, start: 0.0, duration: 0.5, velocity: 105 },
-        { pitch: 44, start: 1.0, duration: 0.5, velocity: 96 },
-      ],
+// Use a factory function so Date.now() is called client-side only,
+// preventing SSR/client timestamp mismatch hydration errors.
+function makeMockCommands(): BridgeCommand[] {
+  const now = Date.now();
+  return [
+    {
+      id: "cmd-a1b2c3d4",
+      command_type: "set_tempo",
+      payload: { type: "set_tempo", bpm: 132 },
+      status: "pending",
+      source: "127.0.0.1",
+      created_at: new Date(now - 15000).toISOString(),
+      updated_at: new Date(now - 15000).toISOString(),
     },
-    status: "pending",
-    source: "127.0.0.1",
-    created_at: new Date(Date.now() - 8000).toISOString(),
-    updated_at: new Date(Date.now() - 8000).toISOString(),
-  },
-  {
-    id: "cmd-c3d4e5f6",
-    command_type: "set_track_volume",
-    payload: { type: "set_track_volume", track: 2, volume: 0.75 },
-    status: "pending",
-    source: "127.0.0.1",
-    created_at: new Date(Date.now() - 3000).toISOString(),
-    updated_at: new Date(Date.now() - 3000).toISOString(),
-  },
-  {
-    id: "cmd-d4e5f6g7",
-    command_type: "set_macro",
-    payload: { type: "set_macro", track: 3, macro: 1, value: 0.4 },
-    status: "sent",
-    source: "127.0.0.1",
-    created_at: new Date(Date.now() - 60000).toISOString(),
-    updated_at: new Date(Date.now() - 55000).toISOString(),
-  },
-  {
-    id: "cmd-e5f6g7h8",
-    command_type: "launch_scene",
-    payload: { type: "launch_scene", scene: 0 },
-    status: "acknowledged",
-    source: "127.0.0.1",
-    created_at: new Date(Date.now() - 120000).toISOString(),
-    updated_at: new Date(Date.now() - 119000).toISOString(),
-    result: { forwarded: true },
-  },
-];
+    {
+      id: "cmd-b2c3d4e5",
+      command_type: "create_midi_clip",
+      payload: {
+        type: "create_midi_clip",
+        track: 1,
+        clip: 0,
+        bar: 1,
+        beats: 8,
+        notes: [
+          { pitch: 41, start: 0.0, duration: 0.5, velocity: 105 },
+          { pitch: 44, start: 1.0, duration: 0.5, velocity: 96 },
+        ],
+      },
+      status: "pending",
+      source: "127.0.0.1",
+      created_at: new Date(now - 8000).toISOString(),
+      updated_at: new Date(now - 8000).toISOString(),
+    },
+    {
+      id: "cmd-c3d4e5f6",
+      command_type: "set_track_volume",
+      payload: { type: "set_track_volume", track: 2, volume: 0.75 },
+      status: "pending",
+      source: "127.0.0.1",
+      created_at: new Date(now - 3000).toISOString(),
+      updated_at: new Date(now - 3000).toISOString(),
+    },
+    {
+      id: "cmd-d4e5f6g7",
+      command_type: "set_macro",
+      payload: { type: "set_macro", track: 3, macro: 1, value: 0.4 },
+      status: "sent",
+      source: "127.0.0.1",
+      created_at: new Date(now - 60000).toISOString(),
+      updated_at: new Date(now - 55000).toISOString(),
+    },
+    {
+      id: "cmd-e5f6g7h8",
+      command_type: "launch_scene",
+      payload: { type: "launch_scene", scene: 0 },
+      status: "acknowledged",
+      source: "127.0.0.1",
+      created_at: new Date(now - 120000).toISOString(),
+      updated_at: new Date(now - 119000).toISOString(),
+      result: { forwarded: true },
+    },
+  ];
+}
 
 type FilterMode = "all" | "pending" | "active";
 
 export default function QueuePage() {
-  const [commands, setCommands] = useState<BridgeCommand[]>(MOCK_PENDING);
+  const [commands, setCommands] = useState<BridgeCommand[]>(makeMockCommands);
   const [health, setHealth] = useState<BridgeHealth | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterMode>("all");
