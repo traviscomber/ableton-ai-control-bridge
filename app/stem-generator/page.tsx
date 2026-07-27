@@ -1,96 +1,51 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import type { FullPipelineResponse, SamplepPackStem, MidiFile } from "@/app/api/music/generate-stems/route";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Variant = "daytime" | "morning" | "night";
 
-interface StemResult {
-  name: string;
-  wav_b64: string;
-  sampleRate: number;
-  bitDepth: number;
-  durationSec: number;
-  sizeBytes: number;
-}
-
-interface MixResult {
-  wav_b64: string;
-  lufs: number;
-  truePeak: number;
-  dynamicRange: number;
-  durationSec: number;
-  sizeBytes: number;
-}
-
-interface GenerateResponse {
-  stems: StemResult[];
-  mix?: MixResult;
-  meta: {
-    bpm: number;
-    key: string;
-    bars: number;
-    variant: Variant;
-    description: string;
-    renderTimeMs: number;
-    stemCount: number;
-    totalSizeBytes: number;
-  };
-  error?: string;
-}
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const ALL_STEMS = ["kick", "snare", "hihat", "bass", "pad", "stab", "arp", "noise"] as const;
-type StemName = typeof ALL_STEMS[number];
-
-const STEM_COLORS: Record<StemName, string> = {
-  kick:  "#e85d3c",
-  snare: "#e8a23c",
-  hihat: "#c8d43c",
-  bass:  "#3cd4a8",
-  pad:   "#3c9de8",
-  stab:  "#8c5de8",
-  arp:   "#e83ca8",
-  noise: "#6b6b76",
+const VARIANT_INFO: Record<Variant, { bpm: number; key: string; label: string; desc: string; color: string }> = {
+  daytime: { bpm: 124, key: "C major", label: "Daytime", desc: "Bright · Energetic · Club-ready", color: "#f5a623" },
+  morning: { bpm: 116, key: "G major", label: "Morning", desc: "Warm · Soulful · Organic",        color: "#3cd4a8" },
+  night:   { bpm: 120, key: "F minor", label: "Night",   desc: "Deep · Mysterious · Hypnotic",    color: "#9b5de8" },
 };
 
-const STEM_LABELS: Record<StemName, string> = {
-  kick:  "Kick",
-  snare: "Snare",
-  hihat: "Hi-Hat",
-  bass:  "Bass",
-  pad:   "Pad",
-  stab:  "Stab",
-  arp:   "Arp",
-  noise: "Noise",
+const STEM_COLORS: Record<string, string> = {
+  kick:  "#e85d3c", snare: "#e8a23c", hihat: "#c8d43c",
+  bass:  "#3cd4a8", pad:   "#3c9de8", stab:  "#8c5de8",
+  arp:   "#e83ca8", noise: "#6b6b76",
 };
 
-const VARIANT_INFO: Record<Variant, { bpm: number; key: string; label: string; desc: string }> = {
-  daytime: { bpm: 124, key: "C major",  label: "Daytime", desc: "Bright · Energetic · Club-ready" },
-  morning: { bpm: 116, key: "G major",  label: "Morning", desc: "Warm · Soulful · Organic" },
-  night:   { bpm: 120, key: "F minor",  label: "Night",   desc: "Deep · Mysterious · Hypnotic" },
-};
+const STAGE_LABELS = [
+  { key: "structure",    label: "Structure" },
+  { key: "samplepack",   label: "Samplepack" },
+  { key: "midi",         label: "MIDI Files" },
+  { key: "quality_gates", label: "Quality Gates" },
+  { key: "final_wav",    label: "Master WAV" },
+];
 
-// ─── Waveform visualiser ─────────────────────────────────────────────────────
+// ─── Tiny helpers ─────────────────────────────────────────────────────────────
+
+function fmtBytes(b: number): string {
+  if (b > 1_048_576) return `${(b / 1_048_576).toFixed(2)} MB`;
+  return `${(b / 1024).toFixed(0)} kB`;
+}
 
 function WaveformBar({ active, color }: { active: boolean; color: string }) {
   return (
-    <div className="flex items-end gap-px h-8">
-      {Array.from({ length: 24 }).map((_, i) => {
-        const height = active
-          ? Math.round(20 + Math.abs(Math.sin(i * 1.1)) * 10 + Math.abs(Math.cos(i * 0.7)) * 6)
-          : Math.round(4 + Math.abs(Math.sin(i * 0.9)) * 4);
+    <div className="flex items-end gap-px h-7">
+      {Array.from({ length: 20 }).map((_, i) => {
+        const h = active
+          ? Math.round(14 + Math.abs(Math.sin(i * 1.1)) * 9 + Math.abs(Math.cos(i * 0.7)) * 5)
+          : Math.round(3 + Math.abs(Math.sin(i * 0.9)) * 3);
         return (
           <div
             key={i}
             className="w-px rounded-full transition-all duration-500"
-            style={{
-              height: `${height}px`,
-              backgroundColor: active ? color : "var(--text-faint)",
-              opacity: active ? 0.85 : 0.4,
-            }}
+            style={{ height: `${h}px`, backgroundColor: active ? color : "var(--text-faint)", opacity: active ? 0.85 : 0.35 }}
           />
         );
       })}
@@ -98,162 +53,278 @@ function WaveformBar({ active, color }: { active: boolean; color: string }) {
   );
 }
 
-// ─── Animated playing indicator ───────────────────────────────────────────────
-
 function PlayingPulse({ color }: { color: string }) {
   return (
-    <span className="relative flex h-2 w-2">
-      <span
-        className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60"
-        style={{ backgroundColor: color }}
-      />
-      <span
-        className="relative inline-flex rounded-full h-2 w-2"
-        style={{ backgroundColor: color }}
-      />
+    <span className="relative flex h-2 w-2 flex-shrink-0">
+      <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style={{ backgroundColor: color }} />
+      <span className="relative inline-flex rounded-full h-2 w-2" style={{ backgroundColor: color }} />
     </span>
+  );
+}
+
+function StageBadge({ label, done }: { label: string; done: boolean }) {
+  return (
+    <span
+      className="px-2 py-0.5 rounded text-xs font-mono transition-colors"
+      style={{
+        backgroundColor: done ? "var(--brand-dim)" : "var(--surface-raised)",
+        color: done ? "var(--brand)" : "var(--text-faint)",
+        border: `1px solid ${done ? "var(--brand)" : "var(--border)"}`,
+      }}
+    >
+      {done ? "✓" : "·"} {label}
+    </span>
+  );
+}
+
+function SectionDivider({ title }: { title: string }) {
+  return (
+    <div className="flex items-center gap-3 mt-8 mb-4">
+      <div className="h-px flex-1 bg-border" />
+      <span className="text-xs font-mono font-semibold uppercase tracking-widest text-text-faint">{title}</span>
+      <div className="h-px flex-1 bg-border" />
+    </div>
   );
 }
 
 // ─── Stem card ────────────────────────────────────────────────────────────────
 
-function StemCard({
-  name,
-  result,
-  selected,
-  onToggle,
-}: {
-  name: StemName;
-  result?: StemResult;
-  selected: boolean;
-  onToggle: () => void;
-}) {
-  const color = STEM_COLORS[name];
+function StemCard({ stem }: { stem: SamplepPackStem }) {
+  const color = STEM_COLORS[stem.stem_type] ?? "#6b6b76";
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
 
   const play = useCallback(() => {
-    if (!result) return;
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
-    const blob = new Blob(
-      [Uint8Array.from(atob(result.wav_b64), (c) => c.charCodeAt(0))],
-      { type: "audio/wav" }
-    );
-    const url = URL.createObjectURL(blob);
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    const bytes = Uint8Array.from(atob(stem.wav_b64), (c) => c.charCodeAt(0));
+    const url = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
     const audio = new Audio(url);
     audioRef.current = audio;
     audio.onended = () => { setPlaying(false); URL.revokeObjectURL(url); };
     audio.onpause = () => setPlaying(false);
     setPlaying(true);
     audio.play();
-  }, [result]);
+  }, [stem]);
 
   const download = useCallback(() => {
-    if (!result) return;
-    const blob = new Blob(
-      [Uint8Array.from(atob(result.wav_b64), (c) => c.charCodeAt(0))],
-      { type: "audio/wav" }
-    );
+    const bytes = Uint8Array.from(atob(stem.wav_b64), (c) => c.charCodeAt(0));
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `${result.name}.wav`;
+    a.href = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
+    a.download = `${stem.name}.wav`;
     a.click();
-  }, [result]);
+  }, [stem]);
 
   return (
-    <div
-      className="rounded-lg border transition-all duration-150 overflow-hidden"
-      style={{
-        borderColor: selected ? color + "60" : "var(--border)",
-        backgroundColor: selected ? color + "08" : "var(--card)",
-      }}
-    >
-      {/* Header row */}
-      <div className="flex items-center gap-3 px-4 py-3">
-        {/* Toggle checkbox */}
-        <button
-          onClick={onToggle}
-          className="w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors"
-          style={{
-            borderColor: selected ? color : "var(--border)",
-            backgroundColor: selected ? color : "transparent",
-          }}
-          aria-label={`${selected ? "Deselect" : "Select"} ${STEM_LABELS[name]} stem`}
-        >
-          {selected && (
-            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-              <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          )}
-        </button>
-
-        {/* Label */}
+    <div className="rounded-lg border overflow-hidden transition-all" style={{ borderColor: color + "40", backgroundColor: color + "07" }}>
+      <div className="flex items-center gap-2.5 px-3 py-2.5">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span
-              className="text-xs font-mono font-semibold uppercase tracking-wider"
-              style={{ color }}
-            >
-              {STEM_LABELS[name]}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-mono font-semibold uppercase tracking-wider" style={{ color }}>
+              {stem.stem_type}
             </span>
             {playing && <PlayingPulse color={color} />}
           </div>
-          {result && (
-            <p className="text-xs text-text-faint mt-0.5 font-mono">
-              {result.durationSec.toFixed(2)}s · 48kHz/24bit · {(result.sizeBytes / 1024).toFixed(0)}kB
-            </p>
-          )}
+          <p className="text-xs font-mono mt-0.5" style={{ color: "var(--text-faint)" }}>
+            {stem.durationSec.toFixed(2)}s · {fmtBytes(stem.sizeBytes)}
+          </p>
         </div>
-
-        {/* Actions */}
-        {result && (
-          <div className="flex gap-1.5">
-            <button
-              onClick={play}
-              className="px-2.5 py-1 rounded text-xs font-mono transition-colors"
-              style={{
-                backgroundColor: playing ? color + "30" : "var(--surface-raised)",
-                color: playing ? color : "var(--text-dim)",
-              }}
-              aria-label={`Play ${STEM_LABELS[name]}`}
-            >
-              {playing ? "■" : "▶"}
-            </button>
-            <button
-              onClick={download}
-              className="px-2.5 py-1 rounded text-xs font-mono transition-colors bg-surface-raised text-text-dim hover:text-foreground"
-              aria-label={`Download ${STEM_LABELS[name]} WAV`}
-            >
-              ↓
-            </button>
-          </div>
-        )}
+        <div className="flex gap-1">
+          <button
+            onClick={play}
+            className="w-7 h-7 rounded flex items-center justify-center text-xs font-mono transition-colors"
+            style={{ backgroundColor: playing ? color + "30" : "var(--surface-raised)", color: playing ? color : "var(--text-dim)" }}
+          >
+            {playing ? "■" : "▶"}
+          </button>
+          <button
+            onClick={download}
+            className="w-7 h-7 rounded flex items-center justify-center text-xs font-mono transition-colors bg-surface-raised hover:bg-surface-overlay"
+            style={{ color: "var(--text-dim)" }}
+          >
+            ↓
+          </button>
+        </div>
       </div>
-
-      {/* Waveform bar */}
-      <div className="px-4 pb-3">
-        <WaveformBar active={!!result} color={color} />
+      <div className="px-3 pb-2.5">
+        <WaveformBar active color={color} />
       </div>
     </div>
   );
 }
 
-// ─── Mix card ─────────────────────────────────────────────────────────────────
+// ─── MIDI card ────────────────────────────────────────────────────────────────
 
-function MixCard({ mix }: { mix: MixResult }) {
+function MidiCard({ midi }: { midi: MidiFile }) {
+  const color = STEM_COLORS[midi.stem] ?? "#6b6b76";
+
+  const download = useCallback(() => {
+    const bytes = Uint8Array.from(atob(midi.midi_b64), (c) => c.charCodeAt(0));
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([bytes], { type: "audio/midi" }));
+    a.download = midi.filename;
+    a.click();
+  }, [midi]);
+
+  // Mini piano-roll dots: show roughly where notes fall
+  const dots = Array.from({ length: 16 }, (_, i) => {
+    if (midi.track_type === "drums") return i % 4 === 0 || (midi.stem === "hihat" && i % 2 === 0);
+    if (midi.stem === "bass") return i % 4 === 0 || i === 6 || i === 10;
+    if (midi.stem === "pad") return i === 0;
+    if (midi.stem === "arp") return true;
+    if (midi.stem === "stab") return i === 4 || i === 12;
+    return i % 4 === 0;
+  });
+
+  return (
+    <div className="rounded-lg border overflow-hidden" style={{ borderColor: color + "40", backgroundColor: color + "07" }}>
+      <div className="flex items-center gap-2.5 px-3 py-2.5">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono font-semibold" style={{ color }}>{midi.stem}</span>
+            <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: "var(--surface-raised)", color: "var(--text-faint)" }}>
+              {midi.track_type === "drums" ? `Ch ${midi.channel} · GM drums` : `Ch ${midi.channel}`}
+            </span>
+          </div>
+          <p className="text-xs font-mono mt-0.5" style={{ color: "var(--text-faint)" }}>
+            {midi.notes_count} notes · {midi.duration_beats} beats · {midi.filename}
+          </p>
+        </div>
+        <button
+          onClick={download}
+          className="h-7 px-2.5 rounded flex items-center gap-1 text-xs font-mono transition-colors"
+          style={{ backgroundColor: "var(--surface-raised)", color: "var(--text-dim)", border: `1px solid var(--border)` }}
+        >
+          ↓ .mid
+        </button>
+      </div>
+      {/* 16-step piano roll */}
+      <div className="px-3 pb-2.5 flex gap-0.5">
+        {dots.map((active, i) => (
+          <div
+            key={i}
+            className="flex-1 h-4 rounded-sm transition-colors"
+            style={{ backgroundColor: active ? color + "60" : "var(--surface-raised)", border: `1px solid ${active ? color + "80" : "var(--border)"}` }}
+          />
+        ))}
+      </div>
+      <div className="px-3 pb-2.5">
+        <p className="text-xs font-mono leading-relaxed" style={{ color: "var(--text-faint)" }}>
+          {midi.description}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Drum pattern grid ────────────────────────────────────────────────────────
+
+function DrumGrid({ pattern }: { pattern: { kick: number[]; snare: number[]; hihat: number[]; open_hihat: number[]; perc: number[] } }) {
+  const rows: Array<{ label: string; positions: number[]; color: string }> = [
+    { label: "KICK",  positions: pattern.kick,       color: STEM_COLORS.kick },
+    { label: "SNARE", positions: pattern.snare,      color: STEM_COLORS.snare },
+    { label: "HH CL", positions: pattern.hihat,      color: STEM_COLORS.hihat },
+    { label: "HH OP", positions: pattern.open_hihat, color: "#a0c060" },
+    { label: "PERC",  positions: pattern.perc,       color: STEM_COLORS.noise },
+  ];
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      {rows.map((row) => (
+        <div key={row.label} className="flex items-center gap-2">
+          <span className="text-xs font-mono w-14 flex-shrink-0" style={{ color: "var(--text-faint)" }}>{row.label}</span>
+          <div className="flex gap-0.5 flex-1">
+            {Array.from({ length: 16 }, (_, i) => {
+              const active = row.positions.includes(i);
+              const isBeat = i % 4 === 0;
+              return (
+                <div
+                  key={i}
+                  className="flex-1 h-5 rounded-sm"
+                  style={{
+                    backgroundColor: active ? row.color + "90" : isBeat ? "var(--surface-overlay)" : "var(--surface-raised)",
+                    border: `1px solid ${active ? row.color : isBeat ? "var(--border)" : "transparent"}`,
+                    boxShadow: active ? `0 0 4px ${row.color}50` : "none",
+                  }}
+                />
+              );
+            })}
+          </div>
+        </div>
+      ))}
+      {/* Beat numbers */}
+      <div className="flex items-center gap-2">
+        <span className="w-14 flex-shrink-0" />
+        <div className="flex gap-0.5 flex-1">
+          {Array.from({ length: 16 }, (_, i) => (
+            <div key={i} className="flex-1 text-center" style={{ color: i % 4 === 0 ? "var(--text-dim)" : "transparent", fontSize: "8px", fontFamily: "var(--font-mono)" }}>
+              {i % 4 === 0 ? i / 4 + 1 : "."}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Quality gate card ────────────────────────────────────────────────────────
+
+function GateCard({
+  title, passed, score, items,
+}: {
+  title: string;
+  passed: boolean;
+  score: number;
+  items: Array<{ label: string; ok: boolean; detail?: string }>;
+}) {
+  return (
+    <div className="rounded-lg border p-4" style={{ borderColor: passed ? "#4dffa040" : "#ff4d4d40", backgroundColor: passed ? "#4dffa007" : "#ff4d4d07" }}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span
+            className="w-2 h-2 rounded-full"
+            style={{ backgroundColor: passed ? "var(--brand)" : "var(--destructive)" }}
+          />
+          <span className="text-sm font-semibold font-mono" style={{ color: passed ? "var(--brand)" : "var(--destructive)" }}>
+            {title}
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>Score</span>
+          <span className="text-xl font-mono font-bold" style={{ color: passed ? "var(--brand)" : "var(--destructive)" }}>
+            {score}
+          </span>
+        </div>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        {items.map((item) => (
+          <div key={item.label} className="flex items-start gap-2">
+            <span className="text-xs font-mono mt-0.5 flex-shrink-0" style={{ color: item.ok ? "var(--brand)" : "var(--destructive)" }}>
+              {item.ok ? "✓" : "✗"}
+            </span>
+            <div>
+              <span className="text-xs font-mono" style={{ color: "var(--foreground)" }}>{item.label}</span>
+              {item.detail && (
+                <p className="text-xs font-mono mt-0.5" style={{ color: "var(--text-faint)" }}>{item.detail}</p>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Master WAV card ──────────────────────────────────────────────────────────
+
+function MasterWavCard({ wav }: { wav: FullPipelineResponse["final_wav"] }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
 
   const play = () => {
+    if (!wav.wav_b64) return;
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
-    const blob = new Blob(
-      [Uint8Array.from(atob(mix.wav_b64), (c) => c.charCodeAt(0))],
-      { type: "audio/wav" }
-    );
-    const url = URL.createObjectURL(blob);
+    const bytes = Uint8Array.from(atob(wav.wav_b64), (c) => c.charCodeAt(0));
+    const url = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
     const audio = new Audio(url);
     audioRef.current = audio;
     audio.onended = () => { setPlaying(false); URL.revokeObjectURL(url); };
@@ -262,57 +333,53 @@ function MixCard({ mix }: { mix: MixResult }) {
   };
 
   const download = () => {
-    const blob = new Blob(
-      [Uint8Array.from(atob(mix.wav_b64), (c) => c.charCodeAt(0))],
-      { type: "audio/wav" }
-    );
+    if (!wav.wav_b64) return;
+    const bytes = Uint8Array.from(atob(wav.wav_b64), (c) => c.charCodeAt(0));
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "darksco-mix-master.wav";
+    a.href = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
+    a.download = "darksco-master.wav";
     a.click();
   };
 
+  const meters = [
+    { label: "Integrated", value: wav.lufs.toFixed(1),        unit: "LUFS", ok: wav.lufs > -16 && wav.lufs < -12 },
+    { label: "True Peak",  value: wav.truePeak.toFixed(1),     unit: "dBTP", ok: wav.truePeak < -0.1 },
+    { label: "Dyn. Range", value: wav.dynamicRange.toFixed(1), unit: "LU",   ok: wav.dynamicRange > 4 },
+  ];
+
   return (
     <div className="rounded-lg border border-border bg-card p-4">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-sm font-semibold text-foreground">Stereo Mix Master</h3>
-          <p className="text-xs text-text-dim font-mono mt-1">
-            {mix.durationSec.toFixed(2)}s · 48kHz/24bit stereo · {(mix.sizeBytes / 1024).toFixed(0)}kB
+          <p className="text-xs font-mono mt-0.5" style={{ color: "var(--text-dim)" }}>
+            {wav.durationSec.toFixed(2)}s · 48kHz / 24-bit stereo · {fmtBytes(wav.sizeBytes)}
           </p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={play}
             className="px-3 py-1.5 rounded text-sm font-mono transition-colors"
-            style={{ backgroundColor: "var(--surface-raised)", color: playing ? "#3c9de8" : "var(--text-dim)" }}
+            style={{ backgroundColor: "var(--surface-raised)", color: playing ? "var(--brand)" : "var(--text-dim)" }}
           >
             {playing ? "■ Stop" : "▶ Play"}
           </button>
           <button
             onClick={download}
-            className="px-3 py-1.5 rounded text-sm font-mono bg-surface-raised text-text-dim hover:text-foreground transition-colors"
+            className="px-3 py-1.5 rounded text-sm font-mono transition-colors bg-surface-raised hover:bg-surface-overlay"
+            style={{ color: "var(--text-dim)" }}
           >
             ↓ WAV
           </button>
         </div>
       </div>
-
-      {/* LUFS meters */}
-      <div className="grid grid-cols-3 gap-3 mt-4">
-        {[
-          { label: "Integrated", value: mix.lufs.toFixed(1), unit: "LUFS", ok: mix.lufs > -16 && mix.lufs < -12 },
-          { label: "True Peak",  value: mix.truePeak.toFixed(1), unit: "dBTP", ok: mix.truePeak < -0.1 },
-          { label: "Dyn. Range", value: mix.dynamicRange.toFixed(1), unit: "LU", ok: mix.dynamicRange > 4 },
-        ].map((m) => (
-          <div key={m.label} className="bg-surface-raised rounded-md p-3 text-center">
-            <p className="text-xs text-text-faint font-mono uppercase tracking-wider">{m.label}</p>
-            <p
-              className="text-lg font-mono font-bold mt-1"
-              style={{ color: m.ok ? "#3cd4a8" : "#e85d3c" }}
-            >
+      <div className="grid grid-cols-3 gap-3">
+        {meters.map((m) => (
+          <div key={m.label} className="rounded-md p-3 text-center" style={{ backgroundColor: "var(--surface-raised)" }}>
+            <p className="text-xs font-mono uppercase tracking-wider" style={{ color: "var(--text-faint)" }}>{m.label}</p>
+            <p className="text-lg font-mono font-bold mt-1" style={{ color: m.ok ? "var(--brand)" : "var(--destructive)" }}>
               {m.value}
-              <span className="text-xs font-normal text-text-dim ml-1">{m.unit}</span>
+              <span className="text-xs font-normal ml-1" style={{ color: "var(--text-dim)" }}>{m.unit}</span>
             </p>
           </div>
         ))}
@@ -326,140 +393,109 @@ function MixCard({ mix }: { mix: MixResult }) {
 export default function StemGeneratorPage() {
   const [variant, setVariant] = useState<Variant>("night");
   const [bars, setBars] = useState(8);
-  const [selectedStems, setSelectedStems] = useState<Set<StemName>>(
-    new Set(ALL_STEMS)
-  );
-  const [includeMix, setIncludeMix] = useState(true);
-
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<GenerateResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
-
-  const toggleStem = (name: StemName) => {
-    setSelectedStems((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  };
+  const [result, setResult] = useState<FullPipelineResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const generate = async () => {
-    if (selectedStems.size === 0) return;
     setLoading(true);
     setError(null);
     setResult(null);
-    setProgress(10);
+    setProgress(5);
 
-    // Fake progress while waiting
-    const interval = setInterval(() => {
-      setProgress((p) => Math.min(p + 8, 88));
-    }, 200);
+    const interval = setInterval(() => setProgress((p) => Math.min(p + 6, 88)), 250);
 
     try {
       const res = await fetch("/api/music/generate-stems", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          variant,
-          bars,
-          stems: [...selectedStems],
-          includeMix,
-        }),
+        body: JSON.stringify({ variant, bars, includeMidi: true, includeMix: true }),
       });
-
       clearInterval(interval);
       setProgress(100);
-
-      const data: GenerateResponse = await res.json();
-      if (!res.ok || data.error) {
-        setError(data.error ?? "Generation failed");
-      } else {
-        setResult(data);
-      }
+      const data: FullPipelineResponse = await res.json();
+      if (!res.ok || data.error) setError(data.error ?? "Pipeline failed");
+      else setResult(data);
     } catch (e) {
       clearInterval(interval);
       setError(String(e));
     } finally {
       setLoading(false);
-      setTimeout(() => setProgress(0), 600);
+      setTimeout(() => setProgress(0), 700);
     }
   };
 
-  const stemMap = new Map<string, StemResult>();
-  result?.stems.forEach((s) => {
-    const key = s.name.replace(`-${result.meta.variant}`, "");
-    stemMap.set(key, s);
-  });
+  const stagesCompleted = result?.meta.pipeline_stages_completed ?? [];
+  const variantColor = VARIANT_INFO[variant].color;
 
   return (
     <main className="min-h-screen bg-background text-foreground font-sans">
       {/* Header */}
-      <header className="border-b border-border px-6 py-4">
+      <header className="border-b border-border px-6 py-4 sticky top-0 z-10" style={{ backgroundColor: "var(--background)" }}>
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-semibold tracking-tight">Stem Generator</h1>
-            <p className="text-xs text-text-dim font-mono mt-0.5">
-              Zero-dependency synthesis · 48kHz / 24-bit WAV
+            <h1 className="text-base font-semibold tracking-tight">DARKSCO Production Pipeline</h1>
+            <p className="text-xs font-mono mt-0.5" style={{ color: "var(--text-dim)" }}>
+              Sound Brief → Samplepack WAV → MIDI per Stem → Quality Gates → Master WAV
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono text-text-faint">DARKSCO ENGINE</span>
-            <span className="w-2 h-2 rounded-full bg-brand-dim" />
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {STAGE_LABELS.map((s) => (
+              <StageBadge key={s.key} label={s.label} done={stagesCompleted.includes(s.key)} />
+            ))}
           </div>
         </div>
       </header>
 
-      <div className="max-w-5xl mx-auto px-6 py-8 flex flex-col gap-8">
-        {/* Controls */}
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Variant picker */}
+      <div className="max-w-5xl mx-auto px-6 py-8 flex flex-col gap-0">
+
+        {/* ── STAGE 1 INPUT: Brief ─────────────────────────────────────────── */}
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-8">
+          {/* Variant */}
           <div className="flex flex-col gap-3">
-            <label className="text-xs font-mono text-text-dim uppercase tracking-wider">Variant</label>
+            <label className="text-xs font-mono uppercase tracking-wider" style={{ color: "var(--text-dim)" }}>
+              Sound Brief — Variant
+            </label>
             <div className="flex gap-2">
-              {(Object.keys(VARIANT_INFO) as Variant[]).map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setVariant(v)}
-                  className="flex-1 rounded-lg border px-3 py-2.5 text-left transition-all duration-150"
-                  style={{
-                    borderColor: variant === v ? "var(--brand)" : "var(--border)",
-                    backgroundColor: variant === v ? "var(--brand-dim)20" : "var(--card)",
-                  }}
-                >
-                  <p
-                    className="text-xs font-semibold"
-                    style={{ color: variant === v ? "var(--brand)" : "var(--foreground)" }}
+              {(Object.keys(VARIANT_INFO) as Variant[]).map((v) => {
+                const info = VARIANT_INFO[v];
+                const active = variant === v;
+                return (
+                  <button
+                    key={v}
+                    onClick={() => setVariant(v)}
+                    className="flex-1 rounded-lg border px-3 py-3 text-left transition-all"
+                    style={{
+                      borderColor: active ? info.color : "var(--border)",
+                      backgroundColor: active ? info.color + "12" : "var(--card)",
+                    }}
                   >
-                    {VARIANT_INFO[v].label}
-                  </p>
-                  <p className="text-xs text-text-faint font-mono mt-0.5">
-                    {VARIANT_INFO[v].bpm} BPM · {VARIANT_INFO[v].key}
-                  </p>
-                </button>
-              ))}
+                    <p className="text-xs font-semibold" style={{ color: active ? info.color : "var(--foreground)" }}>{info.label}</p>
+                    <p className="text-xs font-mono mt-0.5" style={{ color: "var(--text-faint)" }}>{info.bpm} BPM · {info.key}</p>
+                  </button>
+                );
+              })}
             </div>
-            <p className="text-xs text-text-dim font-mono">{VARIANT_INFO[variant].desc}</p>
+            <p className="text-xs font-mono" style={{ color: "var(--text-dim)" }}>{VARIANT_INFO[variant].desc}</p>
           </div>
 
           {/* Settings */}
-          <div className="flex flex-col gap-4">
-            {/* Bars */}
-            <div className="flex flex-col gap-2">
-              <label className="text-xs font-mono text-text-dim uppercase tracking-wider">
-                Bars — <span className="text-foreground">{bars}</span>
+          <div className="flex flex-col justify-between gap-4">
+            <div>
+              <label className="text-xs font-mono uppercase tracking-wider" style={{ color: "var(--text-dim)" }}>
+                Bars — <span style={{ color: "var(--foreground)" }}>{bars}</span>
               </label>
-              <div className="flex gap-2">
+              <div className="flex gap-2 mt-2">
                 {[4, 8, 16, 32].map((b) => (
                   <button
                     key={b}
                     onClick={() => setBars(b)}
                     className="flex-1 py-2 rounded border text-xs font-mono transition-colors"
                     style={{
-                      borderColor: bars === b ? "var(--brand)" : "var(--border)",
-                      backgroundColor: bars === b ? "var(--brand-dim)20" : "var(--card)",
-                      color: bars === b ? "var(--brand)" : "var(--text-dim)",
+                      borderColor: bars === b ? variantColor : "var(--border)",
+                      backgroundColor: bars === b ? variantColor + "18" : "var(--card)",
+                      color: bars === b ? variantColor : "var(--text-dim)",
                     }}
                   >
                     {b}
@@ -468,164 +504,299 @@ export default function StemGeneratorPage() {
               </div>
             </div>
 
-            {/* Include mix */}
-            <label className="flex items-center gap-3 cursor-pointer">
-              <button
-                onClick={() => setIncludeMix((v) => !v)}
-                className="w-4 h-4 rounded border-2 flex items-center justify-center transition-colors flex-shrink-0"
-                style={{
-                  borderColor: includeMix ? "var(--brand)" : "var(--border)",
-                  backgroundColor: includeMix ? "var(--brand)" : "transparent",
-                }}
-              >
-                {includeMix && (
-                  <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                    <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                )}
-              </button>
-              <span className="text-sm text-foreground">Include stereo mix master</span>
-            </label>
-          </div>
-        </section>
-
-        {/* Stem selector */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <label className="text-xs font-mono text-text-dim uppercase tracking-wider">Stems</label>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setSelectedStems(new Set(ALL_STEMS))}
-                className="text-xs font-mono text-text-dim hover:text-foreground transition-colors"
-              >
-                All
-              </button>
-              <button
-                onClick={() => setSelectedStems(new Set())}
-                className="text-xs font-mono text-text-dim hover:text-foreground transition-colors"
-              >
-                None
-              </button>
+            {/* Pipeline summary */}
+            <div className="rounded-lg p-3 flex flex-col gap-1" style={{ backgroundColor: "var(--surface-raised)" }}>
+              <p className="text-xs font-mono font-semibold" style={{ color: "var(--text-dim)" }}>OUTPUT</p>
+              {[
+                `8 WAV stems · 48kHz/24-bit`,
+                `7 MIDI files · one per stem`,
+                `Stereo mix master · -14 LUFS`,
+                `Quality gate report`,
+              ].map((line) => (
+                <p key={line} className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>
+                  · {line}
+                </p>
+              ))}
             </div>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            {ALL_STEMS.map((name) => (
-              <StemCard
-                key={name}
-                name={name}
-                result={stemMap.get(name)}
-                selected={selectedStems.has(name)}
-                onToggle={() => toggleStem(name)}
-              />
-            ))}
-          </div>
         </section>
 
-        {/* Generate button + progress */}
-        <section className="flex flex-col gap-3">
+        {/* Progress + Generate */}
+        <section className="flex flex-col gap-3 pb-8 border-b border-border">
           {loading && progress > 0 && (
-            <div className="h-px bg-border rounded-full overflow-hidden">
+            <div className="h-0.5 rounded-full overflow-hidden" style={{ backgroundColor: "var(--border)" }}>
               <div
-                className="h-full transition-all duration-200 rounded-full"
-                style={{ width: `${progress}%`, backgroundColor: "var(--brand)" }}
+                className="h-full rounded-full transition-all duration-300"
+                style={{ width: `${progress}%`, backgroundColor: variantColor }}
               />
             </div>
           )}
-
           <button
             onClick={generate}
-            disabled={loading || selectedStems.size === 0}
-            className="w-full py-3 rounded-lg border text-sm font-semibold font-mono transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{
-              borderColor: "var(--brand)",
-              backgroundColor: loading ? "transparent" : "var(--brand-dim)20",
-              color: "var(--brand)",
-            }}
+            disabled={loading}
+            className="w-full py-3 rounded-lg border text-sm font-semibold font-mono transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ borderColor: variantColor, backgroundColor: loading ? "transparent" : variantColor + "18", color: variantColor }}
           >
-            {loading
-              ? `Synthesising ${selectedStems.size} stem${selectedStems.size !== 1 ? "s" : ""}...`
-              : `Generate ${selectedStems.size} stem${selectedStems.size !== 1 ? "s" : ""}${includeMix ? " + mix" : ""}`}
+            {loading ? "Running pipeline..." : `Generate full pipeline — ${VARIANT_INFO[variant].label} · ${bars} bars`}
           </button>
-
           {error && (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3">
-              <p className="text-sm text-destructive font-mono">{error}</p>
+            <div className="rounded-lg border px-4 py-3" style={{ borderColor: "var(--destructive)" + "40", backgroundColor: "var(--destructive)" + "0f" }}>
+              <p className="text-sm font-mono" style={{ color: "var(--destructive)" }}>{error}</p>
             </div>
           )}
         </section>
 
-        {/* Results */}
         {result && (
-          <section className="flex flex-col gap-4">
+          <>
             {/* Meta banner */}
-            <div className="flex items-center justify-between rounded-lg bg-surface-raised px-4 py-3">
+            <div className="flex items-center justify-between rounded-lg px-4 py-3 mt-6" style={{ backgroundColor: "var(--surface-raised)" }}>
               <div className="flex items-center gap-4">
-                <span className="text-xs font-mono text-brand uppercase tracking-wider">
-                  {result.meta.variant} · {result.meta.bpm} BPM · {result.meta.key}
+                <span className="text-xs font-mono font-semibold" style={{ color: variantColor }}>
+                  {result.meta.variant.toUpperCase()} · {result.meta.bpm} BPM · {result.meta.key}
                 </span>
-                <span className="text-xs text-text-faint font-mono">
-                  {result.meta.stemCount} stems · {(result.meta.totalSizeBytes / 1024 / 1024).toFixed(2)} MB
+                <span className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>
+                  {result.meta.bars} bars · {fmtBytes(result.meta.total_size_bytes)} total
                 </span>
               </div>
-              <span className="text-xs font-mono text-text-faint">
-                {result.meta.renderTimeMs}ms render
+              <span className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>
+                {result.meta.renderTimeMs}ms · {result.meta.pipeline_stages_completed.length}/5 stages
               </span>
             </div>
 
-            {/* Updated stem grid */}
+            {/* ── STAGE 1 OUTPUT: Music Structure ─────────────────────────── */}
+            <SectionDivider title="Stage 1 — Music Structure" />
+
+            {/* Sections timeline */}
+            <div className="flex flex-col gap-3 mb-4">
+              <p className="text-xs font-mono uppercase tracking-wider" style={{ color: "var(--text-faint)" }}>Arrangement</p>
+              <div className="flex gap-1 h-10 items-stretch">
+                {result.structure.sections.map((sec, i) => {
+                  const totalBars = result.structure.sections.reduce((a, s) => a + s.duration_bars, 0);
+                  const pct = (sec.duration_bars / totalBars) * 100;
+                  const dynColor = sec.dynamics === "intense" ? variantColor : sec.dynamics === "moderate" ? variantColor + "88" : variantColor + "40";
+                  return (
+                    <div
+                      key={i}
+                      className="rounded flex flex-col items-center justify-center gap-0.5 overflow-hidden cursor-default group relative"
+                      style={{ width: `${pct}%`, backgroundColor: dynColor + "30", border: `1px solid ${dynColor}60` }}
+                      title={`${sec.name} — ${sec.duration_bars} bars\n${sec.notes}`}
+                    >
+                      <span className="text-xs font-mono font-semibold capitalize leading-none truncate px-1" style={{ color: dynColor, fontSize: "9px" }}>
+                        {sec.name}
+                      </span>
+                      <span className="font-mono leading-none" style={{ color: "var(--text-faint)", fontSize: "8px" }}>
+                        {sec.duration_bars}b
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+              {/* Drum pattern */}
+              <div className="rounded-lg border border-border p-4" style={{ backgroundColor: "var(--card)" }}>
+                <p className="text-xs font-mono uppercase tracking-wider mb-3" style={{ color: "var(--text-faint)" }}>16-Step Drum Pattern</p>
+                <DrumGrid pattern={result.structure.drum_pattern} />
+                <p className="text-xs font-mono mt-3 leading-relaxed" style={{ color: "var(--text-dim)" }}>
+                  {result.structure.drum_pattern.description}
+                </p>
+              </div>
+
+              {/* Chord progression */}
+              <div className="rounded-lg border border-border p-4" style={{ backgroundColor: "var(--card)" }}>
+                <p className="text-xs font-mono uppercase tracking-wider mb-3" style={{ color: "var(--text-faint)" }}>Chord Progression</p>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {result.structure.chords.map((c, i) => (
+                    <div key={i} className="flex flex-col items-center rounded-md px-3 py-2 gap-0.5" style={{ backgroundColor: "var(--surface-raised)" }}>
+                      <span className="text-xs font-mono font-semibold" style={{ color: variantColor }}>
+                        {c.root}<span style={{ color: "var(--text-dim)", fontSize: "10px" }}>{c.quality}</span>
+                      </span>
+                      <span className="font-mono" style={{ color: "var(--text-faint)", fontSize: "9px" }}>bar {c.bar}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs font-mono uppercase tracking-wider mb-1.5" style={{ color: "var(--text-faint)" }}>Bass Movement</p>
+                <p className="text-xs font-mono leading-relaxed" style={{ color: "var(--text-dim)" }}>{result.structure.bass_movement}</p>
+              </div>
+            </div>
+
+            {/* Synthesis notes + production tips */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
+              <div className="rounded-lg border border-border p-4" style={{ backgroundColor: "var(--card)" }}>
+                <p className="text-xs font-mono uppercase tracking-wider mb-2" style={{ color: "var(--text-faint)" }}>Synthesis Notes</p>
+                <p className="text-xs font-mono leading-relaxed" style={{ color: "var(--text-dim)" }}>{result.structure.synthesis_notes}</p>
+              </div>
+              <div className="rounded-lg border border-border p-4" style={{ backgroundColor: "var(--card)" }}>
+                <p className="text-xs font-mono uppercase tracking-wider mb-2" style={{ color: "var(--text-faint)" }}>Production Tips</p>
+                <ol className="flex flex-col gap-1.5">
+                  {result.structure.production_tips.map((tip, i) => (
+                    <li key={i} className="flex gap-2">
+                      <span className="text-xs font-mono flex-shrink-0" style={{ color: variantColor }}>{i + 1}.</span>
+                      <span className="text-xs font-mono leading-relaxed" style={{ color: "var(--text-dim)" }}>{tip}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </div>
+
+            {/* Arrangement arc */}
+            <div className="rounded-lg border border-border px-4 py-3" style={{ backgroundColor: "var(--card)" }}>
+              <span className="text-xs font-mono uppercase tracking-wider mr-2" style={{ color: "var(--text-faint)" }}>Arc</span>
+              <span className="text-xs font-mono" style={{ color: "var(--text-dim)" }}>{result.structure.arrangement_arc}</span>
+            </div>
+
+            {/* ── STAGE 2: Samplepack ───────────────────────────────────────── */}
+            <SectionDivider title="Stage 2 — Samplepack WAV" />
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-mono" style={{ color: "var(--text-dim)" }}>
+                {result.samplepack.total_stems} stems · {result.samplepack.format} · {fmtBytes(result.samplepack.total_size_bytes)}
+              </p>
+              <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ backgroundColor: "var(--surface-raised)", color: "var(--text-faint)" }}>
+                Pure-TS synthesis engine
+              </span>
+            </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {ALL_STEMS.map((name) => (
-                <StemCard
-                  key={name}
-                  name={name}
-                  result={stemMap.get(name)}
-                  selected={selectedStems.has(name)}
-                  onToggle={() => toggleStem(name)}
-                />
+              {result.samplepack.stems.map((stem) => (
+                <StemCard key={stem.name} stem={stem} />
               ))}
             </div>
 
-            {/* Mix master */}
-            {result.mix && <MixCard mix={result.mix} />}
-          </section>
-        )}
+            {/* ── STAGE 3: MIDI Files ───────────────────────────────────────── */}
+            <SectionDivider title="Stage 3 — MIDI Files" />
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-mono" style={{ color: "var(--text-dim)" }}>
+                {result.midis.length} MIDI files · one per stem · 480 PPQ · Format 0
+              </p>
+              <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ backgroundColor: "var(--surface-raised)", color: "var(--text-faint)" }}>
+                Ableton / Logic / Bitwig compatible
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {result.midis.map((m) => (
+                <MidiCard key={m.stem} midi={m} />
+              ))}
+            </div>
 
-        {/* Engine info */}
-        <section className="border-t border-border pt-6">
-          <h2 className="text-xs font-mono text-text-faint uppercase tracking-wider mb-4">Engine Architecture</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              {
-                title: "WAV Engine",
-                file: "lib/synth/wav-engine.ts",
-                items: ["Sine · Saw · Square · Triangle · Noise oscillators", "ADSR envelope generator", "Biquad filter (LP · HP · BP · Notch · Peak)", "Schroeder reverb · Delay line", "Stereo panning (constant-power)", "16-bit / 24-bit WAV encoder"],
-              },
-              {
-                title: "Drum Synthesizer",
-                file: "lib/synth/drum-synth.ts",
-                items: ["Kick — 808 pitched sine + pitch sweep", "Snare — tone body + HP noise burst", "Hi-Hat — metallic filtered noise (open/closed)", "Clap — layered noise bursts with smear", "Perc — short metallic transient", "16-step sequencer with swing"],
-              },
-              {
-                title: "Mastering Chain",
-                file: "lib/synth/mastering.ts",
-                items: ["5-band parametric EQ (biquad)", "Bus compressor (RMS, feed-forward)", "Stereo widener (M/S)", "Look-ahead brick-wall limiter", "ITU-R BS.1770-4 LUFS meter", "Target normalisation to -14 LUFS"],
-              },
-            ].map((mod) => (
-              <div key={mod.title} className="rounded-lg border border-border p-4">
-                <h3 className="text-sm font-semibold text-foreground">{mod.title}</h3>
-                <p className="text-xs font-mono text-text-faint mt-0.5 mb-3">{mod.file}</p>
-                <ul className="flex flex-col gap-1.5">
-                  {mod.items.map((item) => (
-                    <li key={item} className="flex items-start gap-2 text-xs text-text-dim">
-                      <span className="text-text-faint mt-0.5">·</span>
-                      {item}
-                    </li>
+            {/* ── STAGE 4: Quality Gates ────────────────────────────────────── */}
+            <SectionDivider title="Stage 4 — Quality Gates" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* AudioEngineer */}
+              <GateCard
+                title="AudioEngineer"
+                passed={result.quality_gates.audio_engineer.gate_passed}
+                score={result.quality_gates.audio_engineer.overall_score}
+                items={[
+                  {
+                    label: "Headroom",
+                    ok: result.quality_gates.audio_engineer.headroom_db <= -3,
+                    detail: `${result.quality_gates.audio_engineer.headroom_db.toFixed(1)} dB — target ≤ -3 dB`,
+                  },
+                  {
+                    label: "Frequency Balance",
+                    ok: true,
+                    detail: result.quality_gates.audio_engineer.frequency_balance,
+                  },
+                  {
+                    label: "Dynamic Range",
+                    ok: result.quality_gates.audio_engineer.dynamic_range_db >= 6,
+                    detail: `${result.quality_gates.audio_engineer.dynamic_range_db.toFixed(1)} dB — target ≥ 6 dB`,
+                  },
+                  ...result.quality_gates.audio_engineer.findings.slice(0, 2).map((f) => ({
+                    label: f,
+                    ok: !f.includes("[CRITICAL]"),
+                  })),
+                ]}
+              />
+
+              {/* ComplianceChecker */}
+              <GateCard
+                title="Compliance Checker"
+                passed={result.quality_gates.compliance.gate_passed}
+                score={result.quality_gates.compliance.overall_score}
+                items={[
+                  ...result.quality_gates.compliance.platforms.slice(0, 4).map((p) => ({
+                    label: p.platform,
+                    ok: p.compliant,
+                    detail: `${p.loudness_target} · ${p.notes.slice(0, 60)}`,
+                  })),
+                  {
+                    label: `DARKSCO Standard — ${result.quality_gates.compliance.darksco_score}/100`,
+                    ok: result.quality_gates.compliance.darksco_score >= 80,
+                    detail: result.quality_gates.compliance.darksco_notes[0],
+                  },
+                ]}
+              />
+            </div>
+
+            {/* Master chain */}
+            {result.quality_gates.audio_engineer.master_chain.eq.length > 0 && (
+              <div className="rounded-lg border border-border p-4 mt-3" style={{ backgroundColor: "var(--card)" }}>
+                <p className="text-xs font-mono uppercase tracking-wider mb-3" style={{ color: "var(--text-faint)" }}>Mastering Chain Spec</p>
+                <div className="flex flex-wrap gap-2">
+                  {result.quality_gates.audio_engineer.master_chain.eq.map((eq, i) => (
+                    <div key={i} className="rounded px-2.5 py-1.5" style={{ backgroundColor: "var(--surface-raised)" }}>
+                      <span className="text-xs font-mono" style={{ color: "var(--text-dim)" }}>{eq.band}</span>
+                      <span className="text-xs font-mono ml-1.5" style={{ color: eq.gain >= 0 ? "var(--brand)" : "var(--destructive)" }}>
+                        {eq.gain >= 0 ? "+" : ""}{eq.gain}dB @ {eq.freq}Hz
+                      </span>
+                    </div>
                   ))}
-                </ul>
+                  <div className="rounded px-2.5 py-1.5" style={{ backgroundColor: "var(--surface-raised)" }}>
+                    <span className="text-xs font-mono" style={{ color: "var(--text-dim)" }}>Compressor</span>
+                    <span className="text-xs font-mono ml-1.5" style={{ color: "var(--text-faint)" }}>
+                      {result.quality_gates.audio_engineer.master_chain.compressor.ratio}:1 · {result.quality_gates.audio_engineer.master_chain.compressor.threshold}dBFS
+                    </span>
+                  </div>
+                  <div className="rounded px-2.5 py-1.5" style={{ backgroundColor: "var(--surface-raised)" }}>
+                    <span className="text-xs font-mono" style={{ color: "var(--text-dim)" }}>Target</span>
+                    <span className="text-xs font-mono ml-1.5" style={{ color: "var(--brand)" }}>
+                      {result.quality_gates.audio_engineer.master_chain.loudness_target} LUFS
+                    </span>
+                  </div>
+                </div>
               </div>
-            ))}
-          </div>
-        </section>
+            )}
+
+            {/* Mixing recommendations */}
+            {result.quality_gates.audio_engineer.mixing_recommendations.length > 0 && (
+              <div className="rounded-lg border border-border p-4 mt-3" style={{ backgroundColor: "var(--card)" }}>
+                <p className="text-xs font-mono uppercase tracking-wider mb-3" style={{ color: "var(--text-faint)" }}>Per-Stem Mixing Chain</p>
+                <div className="flex flex-col gap-2">
+                  {result.quality_gates.audio_engineer.mixing_recommendations.map((rec) => {
+                    const color = STEM_COLORS[rec.stem.split("-")[0]] ?? "#6b6b76";
+                    return (
+                      <div key={rec.stem} className="flex gap-3 items-start">
+                        <span className="text-xs font-mono font-semibold w-14 flex-shrink-0 mt-0.5" style={{ color }}>
+                          {rec.stem.split("-")[0].toUpperCase()}
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {rec.processing.map((p) => (
+                            <span key={p} className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: "var(--surface-raised)", color: "var(--text-faint)" }}>
+                              {p}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ── STAGE 5: Final WAV Master ─────────────────────────────────── */}
+            <SectionDivider title="Stage 5 — Final WAV Master" />
+            <MasterWavCard wav={result.final_wav} />
+
+            {/* Pipeline complete badge */}
+            <div className="flex items-center justify-center gap-3 mt-6 py-4 rounded-lg border" style={{ borderColor: "var(--brand)" + "30", backgroundColor: "var(--brand)" + "07" }}>
+              <span className="w-2 h-2 rounded-full pulse-dot" style={{ backgroundColor: "var(--brand)" }} />
+              <span className="text-sm font-mono font-semibold" style={{ color: "var(--brand)" }}>
+                Pipeline complete — {result.meta.pipeline_stages_completed.length}/5 stages · {result.meta.renderTimeMs}ms
+              </span>
+            </div>
+          </>
+        )}
       </div>
     </main>
   );

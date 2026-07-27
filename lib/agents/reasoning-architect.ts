@@ -1,11 +1,30 @@
 /**
  * ReasoningArchitect Agent
  *
- * Uses OpenAI o1 (best reasoning model) to perform deep music theory analysis.
- * Outputs a complete production blueprint: chord progressions, arrangement sections,
- * drum patterns, bass movement, synthesis instructions, MIDI plan, and quality targets.
+ * SKILL: Chief Music Theory Architect
  *
- * This output is passed downstream to MidiComposer, ArrangementMaster, and quality agents.
+ * Primary capability: Deep music theory analysis for DARKSCO productions.
+ * Uses OpenAI o1 (reasoning model) when OPENAI_API_KEY is set, or falls back
+ * to a comprehensive variant-specific structure library.
+ *
+ * Output drives ALL downstream stages:
+ *   → MidiComposer    (sections, chords, drum_pattern → MIDI files per stem)
+ *   → WAV synthesis   (drum_pattern → kick/snare/hihat positions)
+ *   → AudioEngineer   (structure → dynamic range validation)
+ *   → ComplianceChecker (arrangement quality gate)
+ *
+ * Responsibilities:
+ *   - Chord progression design (validated against key/scale)
+ *   - Arrangement sectioning (intro, build, drop, breakdown, peak, outro)
+ *   - Drum pattern grid (16th-note positions per instrument)
+ *   - Bass movement specification (root-fifth patterns, chromatic approaches)
+ *   - Synthesis notes (filter, LFO, envelope, modulation parameters)
+ *   - Production tips (5 specific, professional-grade actions)
+ *   - MIDI plan (per-track density, range, humanization)
+ *   - Quality targets (LUFS, dynamic range, frequency balance)
+ *
+ * Fallback: Variant-specific structures (night/daytime/morning) based on
+ * professional dark disco funk techno production practice — no API key required.
  */
 
 import OpenAI from "openai";
