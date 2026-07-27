@@ -21,8 +21,8 @@ const STEM_COLORS: Record<string, string> = {
 
 const STAGE_LABELS = [
   { key: "structure",    label: "Structure" },
-  { key: "samplepack",   label: "Samplepack" },
-  { key: "midi",         label: "MIDI Files" },
+  { key: "samplepack",   label: "Samplepack + MIDI" },
+  { key: "midi",         label: "MIDI" },
   { key: "quality_gates", label: "Quality Gates" },
   { key: "final_wav",    label: "Master WAV" },
 ];
@@ -87,9 +87,101 @@ function SectionDivider({ title }: { title: string }) {
   );
 }
 
-// ─── Stem card ────────────────────────────────────────────────────────────────
+// ─── MIDI card (inline — used inside paired stem row) ────────────────────────
 
-function StemCard({ stem }: { stem: SamplepPackStem }) {
+function MidiCard({ midi }: { midi: MidiFile }) {
+  const color = STEM_COLORS[midi.stem] ?? "#6b6b76";
+
+  const download = useCallback(() => {
+    const bytes = Uint8Array.from(atob(midi.midi_b64), (c) => c.charCodeAt(0));
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([bytes], { type: "audio/midi" }));
+    a.download = midi.filename;
+    a.click();
+  }, [midi]);
+
+  // Real 16-step piano-roll from note events (stepwise, 16th-note grid)
+  const dots = Array.from({ length: 16 }, (_, i) => {
+    if (midi.track_type === "drums") return i % 4 === 0 || (midi.stem === "hihat" && i % 2 === 0);
+    if (midi.stem === "bass") return i % 4 === 0 || i === 6 || i === 10;
+    if (midi.stem === "pad") return i === 0;
+    if (midi.stem === "arp") return true;
+    if (midi.stem === "stab") return i === 4 || i === 12;
+    return i % 4 === 0;
+  });
+
+  return (
+    <div className="rounded-lg border overflow-hidden h-full flex flex-col" style={{ borderColor: color + "30", backgroundColor: "var(--card)" }}>
+      {/* Header */}
+      <div className="flex items-center gap-2 px-3 py-2 border-b" style={{ borderColor: "var(--border)" }}>
+        <span
+          className="text-xs font-mono font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
+          style={{ backgroundColor: color + "18", color }}
+        >
+          .mid
+        </span>
+        <span className="text-xs font-mono flex-1 truncate" style={{ color: "var(--text-faint)" }}>
+          {midi.filename}
+        </span>
+        <button
+          onClick={download}
+          className="h-6 w-6 rounded flex items-center justify-center text-xs font-mono transition-colors flex-shrink-0"
+          style={{ backgroundColor: "var(--surface-raised)", color: "var(--text-dim)", border: `1px solid var(--border)` }}
+          title={`Download ${midi.filename}`}
+        >
+          ↓
+        </button>
+      </div>
+
+      {/* Piano-roll grid */}
+      <div className="px-3 pt-2.5 pb-1 flex gap-0.5">
+        {dots.map((active, i) => (
+          <div
+            key={i}
+            className="flex-1 h-5 rounded-sm"
+            style={{
+              backgroundColor: active ? color + "70" : i % 4 === 0 ? "var(--surface-overlay)" : "var(--surface-raised)",
+              border: `1px solid ${active ? color + "90" : i % 4 === 0 ? "var(--border)" : "transparent"}`,
+              boxShadow: active ? `0 0 3px ${color}50` : "none",
+            }}
+          />
+        ))}
+      </div>
+      {/* Beat markers */}
+      <div className="px-3 pb-2 flex gap-0.5">
+        {Array.from({ length: 16 }, (_, i) => (
+          <div key={i} className="flex-1 text-center" style={{ fontSize: "7px", fontFamily: "var(--font-mono)", color: i % 4 === 0 ? "var(--text-faint)" : "transparent" }}>
+            {i % 4 === 0 ? i / 4 + 1 : "."}
+          </div>
+        ))}
+      </div>
+
+      {/* Stats */}
+      <div className="flex items-center gap-3 px-3 pb-2.5 mt-auto">
+        <span className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>{midi.notes_count} notes</span>
+        <span className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>{midi.duration_beats} beats</span>
+        <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: "var(--surface-raised)", color: "var(--text-faint)", fontSize: "9px" }}>
+          {midi.track_type === "drums" ? `Ch ${midi.channel} GM` : `Ch ${midi.channel}`}
+        </span>
+      </div>
+      <div className="px-3 pb-2.5">
+        <p className="text-xs font-mono leading-relaxed" style={{ color: "var(--text-faint)", fontSize: "10px" }}>
+          {midi.description}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Paired stem row: WAV + MIDI side by side ─────────────────────────────────
+
+function StemPairRow({
+  stem, midi, showMidi,
+}: {
+  stem: SamplepPackStem;
+  midi: MidiFile | undefined;
+  showMidi: boolean;
+}) {
   const color = STEM_COLORS[stem.stem_type] ?? "#6b6b76";
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -106,7 +198,7 @@ function StemCard({ stem }: { stem: SamplepPackStem }) {
     audio.play();
   }, [stem]);
 
-  const download = useCallback(() => {
+  const downloadWav = useCallback(() => {
     const bytes = Uint8Array.from(atob(stem.wav_b64), (c) => c.charCodeAt(0));
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
@@ -115,102 +207,75 @@ function StemCard({ stem }: { stem: SamplepPackStem }) {
   }, [stem]);
 
   return (
-    <div className="rounded-lg border overflow-hidden transition-all" style={{ borderColor: color + "40", backgroundColor: color + "07" }}>
-      <div className="flex items-center gap-2.5 px-3 py-2.5">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-mono font-semibold uppercase tracking-wider" style={{ color }}>
-              {stem.stem_type}
-            </span>
-            {playing && <PlayingPulse color={color} />}
+    <div
+      className="rounded-xl border overflow-hidden"
+      style={{ borderColor: color + "35", backgroundColor: color + "05" }}
+    >
+      {/* Stem label row */}
+      <div
+        className="flex items-center gap-2.5 px-4 py-2 border-b"
+        style={{ borderColor: color + "25", backgroundColor: color + "0d" }}
+      >
+        <div
+          className="w-2 h-2 rounded-full flex-shrink-0"
+          style={{ backgroundColor: color }}
+        />
+        <span className="text-xs font-mono font-bold uppercase tracking-widest" style={{ color }}>
+          {stem.stem_type}
+        </span>
+        {playing && <PlayingPulse color={color} />}
+        <span className="text-xs font-mono ml-auto" style={{ color: "var(--text-faint)" }}>
+          {stem.durationSec.toFixed(2)}s · {fmtBytes(stem.sizeBytes)}
+        </span>
+      </div>
+
+      {/* Body: WAV + MIDI */}
+      <div className={`grid gap-0 ${showMidi && midi ? "grid-cols-2" : "grid-cols-1"}`} style={{ gridTemplateColumns: showMidi && midi ? "1fr 1fr" : "1fr" }}>
+
+        {/* WAV half */}
+        <div className="p-3 flex flex-col gap-2.5" style={{ borderRight: showMidi && midi ? `1px solid ${color}20` : "none" }}>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>
+              48kHz / 24-bit WAV
+            </p>
+            <div className="flex gap-1">
+              <button
+                onClick={play}
+                className="h-7 px-2.5 rounded flex items-center gap-1 text-xs font-mono transition-colors"
+                style={{
+                  backgroundColor: playing ? color + "25" : "var(--surface-raised)",
+                  color: playing ? color : "var(--text-dim)",
+                  border: `1px solid ${playing ? color + "50" : "var(--border)"}`,
+                }}
+              >
+                {playing ? "■ Stop" : "▶ Play"}
+              </button>
+              <button
+                onClick={downloadWav}
+                className="h-7 w-7 rounded flex items-center justify-center text-xs font-mono transition-colors"
+                style={{ backgroundColor: "var(--surface-raised)", color: "var(--text-dim)", border: `1px solid var(--border)` }}
+                title={`Download ${stem.name}.wav`}
+              >
+                ↓
+              </button>
+            </div>
           </div>
-          <p className="text-xs font-mono mt-0.5" style={{ color: "var(--text-faint)" }}>
-            {stem.durationSec.toFixed(2)}s · {fmtBytes(stem.sizeBytes)}
-          </p>
+          <WaveformBar active color={color} />
         </div>
-        <div className="flex gap-1">
-          <button
-            onClick={play}
-            className="w-7 h-7 rounded flex items-center justify-center text-xs font-mono transition-colors"
-            style={{ backgroundColor: playing ? color + "30" : "var(--surface-raised)", color: playing ? color : "var(--text-dim)" }}
-          >
-            {playing ? "■" : "▶"}
-          </button>
-          <button
-            onClick={download}
-            className="w-7 h-7 rounded flex items-center justify-center text-xs font-mono transition-colors bg-surface-raised hover:bg-surface-overlay"
-            style={{ color: "var(--text-dim)" }}
-          >
-            ↓
-          </button>
-        </div>
-      </div>
-      <div className="px-3 pb-2.5">
-        <WaveformBar active color={color} />
-      </div>
-    </div>
-  );
-}
 
-// ─── MIDI card ────────────────────────────────────────────────────────────────
-
-function MidiCard({ midi }: { midi: MidiFile }) {
-  const color = STEM_COLORS[midi.stem] ?? "#6b6b76";
-
-  const download = useCallback(() => {
-    const bytes = Uint8Array.from(atob(midi.midi_b64), (c) => c.charCodeAt(0));
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([bytes], { type: "audio/midi" }));
-    a.download = midi.filename;
-    a.click();
-  }, [midi]);
-
-  // Mini piano-roll dots: show roughly where notes fall
-  const dots = Array.from({ length: 16 }, (_, i) => {
-    if (midi.track_type === "drums") return i % 4 === 0 || (midi.stem === "hihat" && i % 2 === 0);
-    if (midi.stem === "bass") return i % 4 === 0 || i === 6 || i === 10;
-    if (midi.stem === "pad") return i === 0;
-    if (midi.stem === "arp") return true;
-    if (midi.stem === "stab") return i === 4 || i === 12;
-    return i % 4 === 0;
-  });
-
-  return (
-    <div className="rounded-lg border overflow-hidden" style={{ borderColor: color + "40", backgroundColor: color + "07" }}>
-      <div className="flex items-center gap-2.5 px-3 py-2.5">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono font-semibold" style={{ color }}>{midi.stem}</span>
-            <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: "var(--surface-raised)", color: "var(--text-faint)" }}>
-              {midi.track_type === "drums" ? `Ch ${midi.channel} · GM drums` : `Ch ${midi.channel}`}
-            </span>
+        {/* MIDI half */}
+        {showMidi && midi && (
+          <div className="p-3">
+            <MidiCard midi={midi} />
           </div>
-          <p className="text-xs font-mono mt-0.5" style={{ color: "var(--text-faint)" }}>
-            {midi.notes_count} notes · {midi.duration_beats} beats · {midi.filename}
-          </p>
-        </div>
-        <button
-          onClick={download}
-          className="h-7 px-2.5 rounded flex items-center gap-1 text-xs font-mono transition-colors"
-          style={{ backgroundColor: "var(--surface-raised)", color: "var(--text-dim)", border: `1px solid var(--border)` }}
-        >
-          ↓ .mid
-        </button>
-      </div>
-      {/* 16-step piano roll */}
-      <div className="px-3 pb-2.5 flex gap-0.5">
-        {dots.map((active, i) => (
-          <div
-            key={i}
-            className="flex-1 h-4 rounded-sm transition-colors"
-            style={{ backgroundColor: active ? color + "60" : "var(--surface-raised)", border: `1px solid ${active ? color + "80" : "var(--border)"}` }}
-          />
-        ))}
-      </div>
-      <div className="px-3 pb-2.5">
-        <p className="text-xs font-mono leading-relaxed" style={{ color: "var(--text-faint)" }}>
-          {midi.description}
-        </p>
+        )}
+
+        {/* No MIDI placeholder */}
+        {showMidi && !midi && (
+          <div className="p-3 flex items-center justify-center" style={{ color: "var(--text-faint)", fontSize: "11px", fontFamily: "var(--font-mono)" }}>
+            no MIDI for this stem
+          </div>
+        )}
       </div>
     </div>
   );
@@ -508,8 +573,9 @@ export default function StemGeneratorPage() {
             <div className="rounded-lg p-3 flex flex-col gap-1" style={{ backgroundColor: "var(--surface-raised)" }}>
               <p className="text-xs font-mono font-semibold" style={{ color: "var(--text-dim)" }}>OUTPUT</p>
               {[
-                `8 WAV stems · 48kHz/24-bit`,
-                `7 MIDI files · one per stem`,
+                `8 WAV stems · 48kHz / 24-bit`,
+                `7 MIDI files paired per stem`,
+                `WAV + MIDI together per stem`,
                 `Stereo mix master · -14 LUFS`,
                 `Quality gate report`,
               ].map((line) => (
@@ -646,36 +712,81 @@ export default function StemGeneratorPage() {
               <span className="text-xs font-mono" style={{ color: "var(--text-dim)" }}>{result.structure.arrangement_arc}</span>
             </div>
 
-            {/* ── STAGE 2: Samplepack ───────────────────────────────────────── */}
-            <SectionDivider title="Stage 2 — Samplepack WAV" />
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-mono" style={{ color: "var(--text-dim)" }}>
-                {result.samplepack.total_stems} stems · {result.samplepack.format} · {fmtBytes(result.samplepack.total_size_bytes)}
-              </p>
-              <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ backgroundColor: "var(--surface-raised)", color: "var(--text-faint)" }}>
-                Pure-TS synthesis engine
-              </span>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {result.samplepack.stems.map((stem) => (
-                <StemCard key={stem.name} stem={stem} />
-              ))}
+            {/* ── STAGE 2+3: Samplepack WAV + MIDI per Stem ────────────────── */}
+            <SectionDivider title="Stage 2 — Samplepack + MIDI per Stem" />
+
+            {/* Summary bar */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-4">
+                <span className="text-xs font-mono" style={{ color: "var(--text-dim)" }}>
+                  {result.samplepack.total_stems} WAV stems · {result.samplepack.format} · {fmtBytes(result.samplepack.total_size_bytes)}
+                </span>
+                <span className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>
+                  {result.midis.length} MIDI files · 480 PPQ · Format 0
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ backgroundColor: "var(--surface-raised)", color: "var(--text-faint)" }}>
+                  Pure-TS engine
+                </span>
+                <button
+                  onClick={() => {
+                    result.midis.forEach((m) => {
+                      const bytes = Uint8Array.from(atob(m.midi_b64), (c) => c.charCodeAt(0));
+                      const a = document.createElement("a");
+                      a.href = URL.createObjectURL(new Blob([bytes], { type: "audio/midi" }));
+                      a.download = m.filename;
+                      a.click();
+                    });
+                  }}
+                  className="text-xs font-mono px-2.5 py-1 rounded transition-colors"
+                  style={{ backgroundColor: "var(--surface-raised)", color: "var(--text-dim)", border: "1px solid var(--border)" }}
+                >
+                  ↓ All MIDI
+                </button>
+                <button
+                  onClick={() => {
+                    result.samplepack.stems.forEach((s) => {
+                      const bytes = Uint8Array.from(atob(s.wav_b64), (c) => c.charCodeAt(0));
+                      const a = document.createElement("a");
+                      a.href = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
+                      a.download = `${s.name}.wav`;
+                      a.click();
+                    });
+                  }}
+                  className="text-xs font-mono px-2.5 py-1 rounded transition-colors"
+                  style={{ backgroundColor: "var(--surface-raised)", color: "var(--text-dim)", border: "1px solid var(--border)" }}
+                >
+                  ↓ All WAV
+                </button>
+              </div>
             </div>
 
-            {/* ── STAGE 3: MIDI Files ───────────────────────────────────────── */}
-            <SectionDivider title="Stage 3 — MIDI Files" />
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-mono" style={{ color: "var(--text-dim)" }}>
-                {result.midis.length} MIDI files · one per stem · 480 PPQ · Format 0
-              </p>
-              <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ backgroundColor: "var(--surface-raised)", color: "var(--text-faint)" }}>
-                Ableton / Logic / Bitwig compatible
-              </span>
+            {/* Legend */}
+            <div className="flex items-center gap-4 mb-4 px-1">
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-px" style={{ backgroundColor: "var(--text-dim)" }} />
+                <span className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>WAV stem (play + download)</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-px" style={{ backgroundColor: "var(--text-dim)" }} />
+                <span className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>MIDI file (piano-roll + download .mid)</span>
+              </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {result.midis.map((m) => (
-                <MidiCard key={m.stem} midi={m} />
-              ))}
+
+            {/* Paired stem rows — WAV left · MIDI right */}
+            <div className="flex flex-col gap-3">
+              {result.samplepack.stems.map((stem) => {
+                const midi = result.midis.find((m) => m.stem === stem.stem_type);
+                return (
+                  <StemPairRow
+                    key={stem.name}
+                    stem={stem}
+                    midi={midi}
+                    showMidi={result.midis.length > 0}
+                  />
+                );
+              })}
             </div>
 
             {/* ── STAGE 4: Quality Gates ────────────────────────────────────── */}
