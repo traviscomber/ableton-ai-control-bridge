@@ -1449,9 +1449,12 @@ function buildMidiTrackFull(
     ? buildSimpler(zones[0].samplePath, rootPitch, zones)
     : buildSimpler(simplerFallbackPath, rootPitch);
 
+  // Get stem-specific macros
+  const stemMacros = STEM_MACROS[stem.stem_type] ?? DEFAULT_MACROS;
+
   // Build the main Simpler + FX chain, wrap in Instrument Rack
   const chainXml = `${simplerXml}${devicesXml}`;
-  const instrumentRackXml = buildInstrumentRack(chainXml, DEFAULT_MACROS, label);
+  const instrumentRackXml = buildInstrumentRack(chainXml, stemMacros, label);
 
   // Scale MIDI effect (if enabled, placed before the Rack)
   const scaleXml = includeScale ? buildScaleMidiEffect(keyRoot, 0, true) : "";
@@ -1752,16 +1755,51 @@ interface MacroConfig {
   default: number;
 }
 
-const DEFAULT_MACROS: MacroConfig[] = [
-  { name: "Filter Freq",     min: 100,  max: 20000, default: 8000 },
-  { name: "Filter Res",      min: 0,    max: 1,     default: 0.5 },
-  { name: "Saturation",      min: 0,    max: 40,    default: 0 },
-  { name: "Reverb Send",     min: 0,    max: 1,     default: 0.35 },
-  { name: "Delay Send",      min: 0,    max: 1,     default: 0.15 },
-  { name: "Volume",          min: 0,    max: 2,     default: 1.0 },
-  { name: "Panorama",        min: -1,   max: 1,     default: 0 },
-  { name: "Effect Wet/Dry",  min: 0,    max: 1,     default: 0.5 },
-];
+// Stem-specific macro configurations for live performance
+const STEM_MACROS: Record<string, MacroConfig[]> = {
+  bass: [
+    { name: "Filter Freq",     min: 100,  max: 20000, default: 2000 },
+    { name: "Filter Res",      min: 0,    max: 1,     default: 0.3 },
+    { name: "Saturation",      min: 0,    max: 40,    default: 0 },
+    { name: "Reverb Send",     min: 0,    max: 1,     default: 0.15 },
+    { name: "Delay Send",      min: 0,    max: 1,     default: 0.20 },
+    { name: "Volume",          min: 0,    max: 2,     default: 1.0 },
+    { name: "Panorama",        min: -1,   max: 1,     default: 0 },
+    { name: "Decay Time",      min: 0.1,  max: 4,     default: 0.5 },
+  ],
+  pad: [
+    { name: "Filter Freq",     min: 100,  max: 20000, default: 3000 },
+    { name: "Filter Res",      min: 0,    max: 1,     default: 0.4 },
+    { name: "Saturation",      min: 0,    max: 40,    default: 1 },
+    { name: "Reverb Send",     min: 0,    max: 1,     default: 0.40 },
+    { name: "Delay Send",      min: 0,    max: 1,     default: 0.10 },
+    { name: "Volume",          min: 0,    max: 2,     default: 1.0 },
+    { name: "Panorama",        min: -1,   max: 1,     default: 0 },
+    { name: "Sustain Level",   min: 0,    max: 1,     default: 0.8 },
+  ],
+  stab: [
+    { name: "Filter Freq",     min: 100,  max: 20000, default: 5000 },
+    { name: "Filter Res",      min: 0,    max: 1,     default: 0.2 },
+    { name: "Attack Time",     min: 0.001,max: 0.5,   default: 0.01 },
+    { name: "Reverb Send",     min: 0,    max: 1,     default: 0.20 },
+    { name: "Delay Send",      min: 0,    max: 1,     default: 0.30 },
+    { name: "Volume",          min: 0,    max: 2,     default: 1.0 },
+    { name: "Panorama",        min: -1,   max: 1,     default: 0 },
+    { name: "Release Time",    min: 0.01, max: 2,     default: 0.1 },
+  ],
+  arp: [
+    { name: "Arp Rate",        min: 0.5,  max: 16,    default: 4 },
+    { name: "Arp Mode",        min: 0,    max: 3,     default: 0 },
+    { name: "Filter Freq",     min: 100,  max: 20000, default: 4000 },
+    { name: "Reverb Send",     min: 0,    max: 1,     default: 0.25 },
+    { name: "Delay Send",      min: 0,    max: 1,     default: 0.40 },
+    { name: "Volume",          min: 0,    max: 2,     default: 1.0 },
+    { name: "Panorama",        min: -1,   max: 1,     default: 0 },
+    { name: "Octave Range",    min: 1,    max: 3,     default: 1 },
+  ],
+};
+
+const DEFAULT_MACROS = STEM_MACROS.pad;  // Default to pad
 
 function buildInstrumentRack(
   chainXml: string,           // Pre-built Simpler + FX chain XML
@@ -2060,7 +2098,7 @@ function buildDualArpeggiatorStack(): string {
   return `${arp1}${arp2}`;
 }
 
-// ─── Advanced MIDI Effects Chain (Stack for maximum control) ──────────────
+// ─── Advanced MIDI Effects Chain (Stack for maximum control) ─────��────────
 // Scale + Chord + Arpeggiator + Note Length for complex performance
 
 function buildAdvancedMidiEffectsChain(keyRoot = 0, useChord = true): string {
