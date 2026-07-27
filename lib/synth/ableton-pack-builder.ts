@@ -2047,7 +2047,7 @@ function buildChordMidiEffect(isActive = true): string {
           </Chord>`;
 }
 
-// ─── Note Length MIDI Effect (randomizer for groove) ──────────────────────
+// ──��� Note Length MIDI Effect (randomizer for groove) ──────────────────────
 // Randomize note lengths for humanized/organic feel
 
 function buildNoteLengthMidiEffect(isActive = true): string {
@@ -3094,26 +3094,18 @@ export async function buildAbletonPack(input: AbletonPackInput): Promise<Ableton
   }
 
   // ── 1. WAV stems ────────────────────────────────────────────────────────────
-  const stemForMix: SamplepPackStem = {
-    name:        "master_mix",
-    stem_type:   "mix",
-    wav_b64:     pipeline.final_wav.wav_b64,
-    wav_url:     pipeline.final_wav.wav_url  ?? "",
-    wav_path:    pipeline.final_wav.wav_path ?? "",
-    sampleRate:  48000,
-    bitDepth:    24,
-    durationSec: pipeline.final_wav.durationSec,
-    sizeBytes:   pipeline.final_wav.sizeBytes,
-  };
-
   for (const stem of pipeline.samplepack.stems) {
     const data = await resolveBuffer(stem.wav_b64, stem.wav_url);
     entries.push({ path: `${root}Samples/Originals/${stem.stem_type}.wav`, data });
   }
-  entries.push({
-    path: `${root}Samples/Originals/master_mix.wav`,
-    data: await resolveBuffer(pipeline.final_wav.wav_b64, pipeline.final_wav.wav_url ?? ""),
-  });
+
+  // master_mix.wav only when final_wav was successfully rendered
+  if (pipeline.final_wav?.wav_b64 || pipeline.final_wav?.wav_url) {
+    entries.push({
+      path: `${root}Samples/Originals/master_mix.wav`,
+      data: await resolveBuffer(pipeline.final_wav.wav_b64, pipeline.final_wav.wav_url ?? ""),
+    });
+  }
 
   // ── 2. MIDI files ───────────────────────────────────────────────────────────
   for (const midi of pipeline.midis) {
@@ -3190,8 +3182,18 @@ export async function buildAbletonPack(input: AbletonPackInput): Promise<Ableton
     bpm,
     bars,
     stems:    pipeline.samplepack.stems,
-    hasMix:   true,
-    mixStem:  stemForMix,
+    hasMix:   !!pipeline.final_wav,
+    mixStem:  pipeline.final_wav ? {
+      name:        "master_mix",
+      stem_type:   "mix",
+      wav_b64:     pipeline.final_wav.wav_b64,
+      wav_url:     pipeline.final_wav.wav_url  ?? "",
+      wav_path:    pipeline.final_wav.wav_path ?? "",
+      sampleRate:  48000,
+      bitDepth:    24,
+      durationSec: pipeline.final_wav.durationSec,
+      sizeBytes:   pipeline.final_wav.sizeBytes,
+    } : undefined,
     sections: arrangementSections,
     stemNotes,
     zipRoot:  root,
@@ -3235,9 +3237,9 @@ export async function buildAbletonPack(input: AbletonPackInput): Promise<Ableton
     ``,
     `  ${arrangementSections.length} Scenes: ${arrangementSections.map(s => s.name).join(", ")}`,
     ``,
-    `Samples/Originals/           — ${pipeline.samplepack.stems.length + 1} full-length WAV stems (48kHz / 24-bit)`,
+    `Samples/Originals/           — ${pipeline.samplepack.stems.length + (pipeline.final_wav ? 1 : 0)} full-length WAV stems (48kHz / 24-bit)`,
     ...pipeline.samplepack.stems.map((s) => `  ${s.stem_type}.wav  (${s.durationSec.toFixed(2)}s)`),
-    `  master_mix.wav  (${pipeline.final_wav.durationSec.toFixed(2)}s — stereo master)`,
+    ...(pipeline.final_wav ? [`  master_mix.wav  (${pipeline.final_wav.durationSec.toFixed(2)}s — stereo master)`] : []),
     ``,
     `Samples/Instruments/         — Multi-zone Simpler one-shot samples (melodic stems)`,
     `  Loaded automatically by Simpler in each MidiTrack.`,
@@ -3273,8 +3275,8 @@ export async function buildAbletonPack(input: AbletonPackInput): Promise<Ableton
     `BPM:        ${bpm}`,
     `Key:        ${key}`,
     `Bars:       ${bars}`,
-    `LUFS:       ${pipeline.final_wav.lufs} LUFS integrated`,
-    `True Peak:  ${pipeline.final_wav.truePeak} dBTP`,
+    `LUFS:       ${pipeline.final_wav?.lufs ?? "—"} LUFS integrated`,
+    `True Peak:  ${pipeline.final_wav?.truePeak ?? "—"} dBTP`,
     `One-shots:  ${Math.round(totalOneShotBytes / 1024)} KB across all sample zones`,
     ``,
     `SIMPLER ZONES`,

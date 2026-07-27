@@ -280,8 +280,8 @@ export interface FullPipelineResponse {
       release_ready: boolean;
     };
   };
-  // Stage 5
-  final_wav: {
+  // Stage 5 — optional: present when masterMix succeeds, absent on error
+  final_wav?: {
     wav_b64:  string;  // stripped after upload
     wav_url:  string;  // signed Supabase URL
     wav_path: string;  // storage path
@@ -501,7 +501,7 @@ export async function POST(req: NextRequest) {
       ceilingDbTP: -0.3,
       bitDepth: 24,
     });
-    const finalWav: FullPipelineResponse["final_wav"] = {
+    const finalWav: NonNullable<FullPipelineResponse["final_wav"]> = {
       wav_b64:      master.wavBuffer.toString("base64"),
       wav_url:      "",
       wav_path:     "",

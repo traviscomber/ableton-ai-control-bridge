@@ -181,7 +181,7 @@ function MidiCard({ midi }: { midi: MidiFile }) {
   );
 }
 
-// ─── Paired stem row: WAV + MIDI side by side ────���────────────────────────────
+// ─── Paired stem row: WAV + MIDI side by side ────�����────────────────────────────
 
 function StemPairRow({
   stem, midi, showMidi,
@@ -399,7 +399,7 @@ function GateCard({
 
 // ─── Master WAV card ──────────────────────────────────────────────────────────
 
-function MasterWavCard({ wav }: { wav: FullPipelineResponse["final_wav"] }) {
+function MasterWavCard({ wav }: { wav: NonNullable<FullPipelineResponse["final_wav"]> }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
 
@@ -1250,8 +1250,12 @@ export default function StemGeneratorPage() {
             )}
 
             {/* ── STAGE 5: Final WAV Master ─────────────────────────────────── */}
-            <SectionDivider title="Stage 5 — Final WAV Master" />
-            <MasterWavCard wav={result.final_wav} />
+            {result.final_wav?.wav_b64 && (
+              <>
+                <SectionDivider title="Stage 5 — Final WAV Master" />
+                <MasterWavCard wav={result.final_wav} />
+              </>
+            )}
 
             {/* ── ADVANCED SYNTH ENGINES ────────────────────────────────────── */}
             <SectionDivider title="Advanced Synth Engines & Presets" />
@@ -1463,7 +1467,7 @@ export default function StemGeneratorPage() {
                     {result.samplepack.stems.map((s) => (
                       <PackFileRow key={s.stem_type} icon=".wav" label={`Samples/Originals/${s.stem_type}.wav`} desc={`${s.durationSec.toFixed(2)}s · 48kHz/24-bit`} color={STEM_COLORS[s.stem_type] ?? "#6b6b76"} />
                     ))}
-                    <PackFileRow icon=".wav" label="Samples/Originals/master_mix.wav" desc={`${result.final_wav.durationSec.toFixed(2)}s · stereo master`} color="var(--text-dim)" />
+                    {result.final_wav && <PackFileRow icon=".wav" label="Samples/Originals/master_mix.wav" desc={`${result.final_wav.durationSec.toFixed(2)}s · stereo master`} color="var(--text-dim)" />}
                     {/* MIDI */}
                     {result.midis.map((m) => (
                       <PackFileRow key={m.stem} icon=".mid" label={`MIDI Clips/${m.filename}`} desc={`${m.notes_count} notes · Ch ${m.channel}`} color={STEM_COLORS[m.stem] ?? "#6b6b76"} />
