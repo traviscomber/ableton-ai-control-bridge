@@ -38,9 +38,9 @@ export function AgentCard({ agent, decision, response, onInvoke, isLoading }: Ag
   const [expanded, setExpanded] = useState(false);
 
   // Use response status if available, otherwise fall back to decision
-  const status: AgentStatus = (response?.status as AgentStatus) || decision?.status ?? "IDLE";
+  const status: AgentStatus = ((response?.status as AgentStatus) || decision?.status) ?? "IDLE";
   const sc = STATUS_CONFIG[status];
-  const confidence = response?.confidence || decision?.confidence;
+  const confidence = response?.confidence ?? decision?.confidence;
 
   return (
     <article
