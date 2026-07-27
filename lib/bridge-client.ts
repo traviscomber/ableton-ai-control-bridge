@@ -6,7 +6,10 @@ import type {
   CommandStatus,
 } from "./types";
 
-const BRIDGE_BASE = process.env.NEXT_PUBLIC_BRIDGE_URL ?? "http://127.0.0.1:8765";
+// Always go through the Next.js server-side proxy so the browser never
+// needs a direct connection to localhost:8765 (CORS / network isolation).
+// The proxy forwards requests to BRIDGE_URL (default http://127.0.0.1:8765).
+const BRIDGE_BASE = "/api/bridge";
 
 function bridgeHeaders(token?: string): HeadersInit {
   const h: HeadersInit = { "Content-Type": "application/json" };

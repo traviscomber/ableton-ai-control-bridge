@@ -9,47 +9,13 @@ import { fetchCommands, undoCommand } from "@/lib/bridge-client";
 import type { BridgeCommand, CommandStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-function makeMockHistory(): BridgeCommand[] {
-  const types = [
-    "set_tempo",
-    "launch_scene",
-    "create_midi_clip",
-    "set_track_volume",
-    "set_macro",
-    "start_playback",
-    "stop_playback",
-    "arm_track",
-    "set_track_pan",
-    "create_midi_track",
-  ];
-  const statuses: CommandStatus[] = ["acknowledged", "sent", "rejected", "error", "simulated"];
-  const now = Date.now();
-  return Array.from({ length: 40 }, (_, i) => {
-    const type = types[i % types.length];
-    const status = i === 0 ? "pending" : statuses[i % statuses.length];
-    return {
-      id: `cmd-hist-${i.toString().padStart(3, "0")}`,
-      command_type: type,
-      payload: { type, track: (i % 8) + 1, bpm: 100 + i, value: Math.round((i % 100) / 100 * 1000) / 1000 },
-      status,
-      source: "127.0.0.1",
-      created_at: new Date(now - i * 90000).toISOString(),
-      updated_at: new Date(now - i * 89000).toISOString(),
-      result: status === "acknowledged" ? { forwarded: true } : null,
-      error: status === "error" ? "Max receiver timeout" : null,
-    };
-  });
-}
-
 const ALL_STATUSES: CommandStatus[] = [
   "pending", "accepted", "sent", "acknowledged", "rejected", "error", "simulated",
 ];
 
 export default function HistoryPage() {
-  // Empty on SSR; mock data loaded client-side only in useEffect
   const [commands, setCommands] = useState<BridgeCommand[]>([]);
-  const [isMockMode, setIsMockMode] = useState(true);
+  const [bridgeError, setBridgeError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<CommandStatus | "all">("all");
@@ -60,10 +26,9 @@ export default function HistoryPage() {
     try {
       const cmds = await fetchCommands({ limit: 200 });
       setCommands(cmds);
-      setIsMockMode(false);
-    } catch {
-      // Bridge offline — load mock data client-side
-      setCommands(makeMockHistory());
+      setBridgeError(null);
+    } catch (err) {
+      setBridgeError(err instanceof Error ? err.message : "Bridge unreachable at 127.0.0.1:8765");
     }
   }, []);
 
@@ -82,13 +47,9 @@ export default function HistoryPage() {
   }, [load]);
 
   const handleUndo = useCallback(async (id: string) => {
-    if (isMockMode) {
-      setCommands((prev) => prev.map((c) => (c.id === id ? { ...c, status: "rejected" } : c)));
-      return;
-    }
     const updated = await undoCommand(id);
     setCommands((prev) => prev.map((c) => (c.id === id ? updated : c)));
-  }, [isMockMode]);
+  }, []);
 
   function exportJSON() {
     const blob = new Blob([JSON.stringify(commands, null, 2)], { type: "application/json" });
@@ -207,9 +168,9 @@ export default function HistoryPage() {
             {sortDesc ? "Newest first" : "Oldest first"}
           </button>
 
-          {isMockMode && (
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded border border-[#f5a623]/30 text-[#f5a623] bg-[#f5a623]/10">
-              DEMO
+          {bridgeError && (
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded border border-red-500/30 text-red-400 bg-red-500/10">
+              OFFLINE — {bridgeError}
             </span>
           )}
         </div>
