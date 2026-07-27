@@ -37,10 +37,16 @@ export interface SampleHit {
   velocity:    number;
   /** velocity label */
   velocity_label: "soft" | "medium" | "hard";
-  /** Base64 48kHz/24-bit mono WAV */
+  /** Base64 48kHz/24-bit mono WAV — stripped to "" after upload to Supabase */
   wav_b64:     string;
-  /** Base64 single-note Format-0 MIDI */
+  /** Base64 single-note Format-0 MIDI — stripped to "" after upload to Supabase */
   midi_b64:    string;
+  /** Signed Supabase Storage URL for the WAV (populated after upload) */
+  wav_url:     string;
+  /** Signed Supabase Storage URL for the MIDI (populated after upload) */
+  midi_url:    string;
+  /** Storage path for re-signing (populated after upload) */
+  wav_path:    string;
   /** sample duration ms */
   duration_ms: number;
   /** WAV size in bytes */
@@ -139,6 +145,9 @@ function renderDrumSamples(
       velocity_label: layer.label,
       wav_b64:        wav.toString("base64"),
       midi_b64:       mid.toString("base64"),
+      wav_url:        "",
+      midi_url:       "",
+      wav_path:       "",
       duration_ms:    durMs,
       size_bytes:     wav.length,
     });
@@ -176,6 +185,9 @@ function renderMelodicSamples(
       velocity_label: "medium",
       wav_b64:        wav.toString("base64"),
       midi_b64:       mid.toString("base64"),
+      wav_url:        "",
+      midi_url:       "",
+      wav_path:       "",
       duration_ms:    durMs,
       size_bytes:     wav.length,
     });

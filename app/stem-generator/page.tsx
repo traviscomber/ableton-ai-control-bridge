@@ -94,6 +94,13 @@ function MidiCard({ midi }: { midi: MidiFile }) {
   const color = STEM_COLORS[midi.stem] ?? "#6b6b76";
 
   const download = useCallback(() => {
+    if (midi.midi_url) {
+      const a = document.createElement("a");
+      a.href = midi.midi_url;
+      a.download = midi.filename;
+      a.click();
+      return;
+    }
     const bytes = Uint8Array.from(atob(midi.midi_b64), (c) => c.charCodeAt(0));
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([bytes], { type: "audio/midi" }));
@@ -189,17 +196,27 @@ function StemPairRow({
 
   const play = useCallback(() => {
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
-    const bytes = Uint8Array.from(atob(stem.wav_b64), (c) => c.charCodeAt(0));
-    const url = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
-    const audio = new Audio(url);
+    // Use signed Storage URL (preferred) or fall back to b64 blob
+    const src = stem.wav_url
+      ? stem.wav_url
+      : URL.createObjectURL(new Blob([Uint8Array.from(atob(stem.wav_b64), (c) => c.charCodeAt(0))], { type: "audio/wav" }));
+    const audio = new Audio(src);
     audioRef.current = audio;
-    audio.onended = () => { setPlaying(false); URL.revokeObjectURL(url); };
+    const isBlob = src.startsWith("blob:");
+    audio.onended = () => { setPlaying(false); if (isBlob) URL.revokeObjectURL(src); };
     audio.onpause = () => setPlaying(false);
     setPlaying(true);
     audio.play();
   }, [stem]);
 
   const downloadWav = useCallback(() => {
+    if (stem.wav_url) {
+      const a = document.createElement("a");
+      a.href = stem.wav_url;
+      a.download = `${stem.name}.wav`;
+      a.click();
+      return;
+    }
     const bytes = Uint8Array.from(atob(stem.wav_b64), (c) => c.charCodeAt(0));
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
@@ -387,18 +404,27 @@ function MasterWavCard({ wav }: { wav: FullPipelineResponse["final_wav"] }) {
   const [playing, setPlaying] = useState(false);
 
   const play = () => {
-    if (!wav.wav_b64) return;
+    if (!wav.wav_url && !wav.wav_b64) return;
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
-    const bytes = Uint8Array.from(atob(wav.wav_b64), (c) => c.charCodeAt(0));
-    const url = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
-    const audio = new Audio(url);
+    const src = wav.wav_url
+      ? wav.wav_url
+      : URL.createObjectURL(new Blob([Uint8Array.from(atob(wav.wav_b64), (c) => c.charCodeAt(0))], { type: "audio/wav" }));
+    const audio = new Audio(src);
     audioRef.current = audio;
-    audio.onended = () => { setPlaying(false); URL.revokeObjectURL(url); };
+    const isBlob = src.startsWith("blob:");
+    audio.onended = () => { setPlaying(false); if (isBlob) URL.revokeObjectURL(src); };
     setPlaying(true);
     audio.play();
   };
 
   const download = () => {
+    if (wav.wav_url) {
+      const a = document.createElement("a");
+      a.href = wav.wav_url;
+      a.download = "darksco-master.wav";
+      a.click();
+      return;
+    }
     if (!wav.wav_b64) return;
     const bytes = Uint8Array.from(atob(wav.wav_b64), (c) => c.charCodeAt(0));
     const a = document.createElement("a");
@@ -462,17 +488,26 @@ function SampleHitRow({ hit, color }: { hit: SampleHit; color: string }) {
 
   const playWav = useCallback(() => {
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
-    const bytes = Uint8Array.from(atob(hit.wav_b64), (c) => c.charCodeAt(0));
-    const url = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
-    const audio = new Audio(url);
+    const src = hit.wav_url
+      ? hit.wav_url
+      : URL.createObjectURL(new Blob([Uint8Array.from(atob(hit.wav_b64), (c) => c.charCodeAt(0))], { type: "audio/wav" }));
+    const audio = new Audio(src);
     audioRef.current = audio;
-    audio.onended = () => { setPlaying(false); URL.revokeObjectURL(url); };
+    const isBlob = src.startsWith("blob:");
+    audio.onended = () => { setPlaying(false); if (isBlob) URL.revokeObjectURL(src); };
     audio.onpause = () => setPlaying(false);
     setPlaying(true);
     audio.play();
   }, [hit]);
 
   const downloadWav = useCallback(() => {
+    if (hit.wav_url) {
+      const a = document.createElement("a");
+      a.href = hit.wav_url;
+      a.download = `${hit.name}.wav`;
+      a.click();
+      return;
+    }
     const bytes = Uint8Array.from(atob(hit.wav_b64), (c) => c.charCodeAt(0));
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
@@ -481,6 +516,13 @@ function SampleHitRow({ hit, color }: { hit: SampleHit; color: string }) {
   }, [hit]);
 
   const downloadMid = useCallback(() => {
+    if (hit.midi_url) {
+      const a = document.createElement("a");
+      a.href = hit.midi_url;
+      a.download = `${hit.name}.mid`;
+      a.click();
+      return;
+    }
     const bytes = Uint8Array.from(atob(hit.midi_b64), (c) => c.charCodeAt(0));
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([bytes], { type: "audio/midi" }));
@@ -668,6 +710,7 @@ export default function StemGeneratorPage() {
           bpm: VARIANT_INFO[variant].bpm,
           bars,
           key: VARIANT_INFO[variant].key,
+          production_id: result.production_id,
         }),
       });
       if (!res.ok) {
@@ -677,13 +720,21 @@ export default function StemGeneratorPage() {
       const filename = res.headers.get("content-disposition")?.match(/filename="([^"]+)"/)?.[1] ?? "DARKSCO_Pack.zip";
       const sizeBytes = Number(res.headers.get("x-pack-size-bytes") ?? 0);
       const fileCount = Number(res.headers.get("x-pack-file-count") ?? 0);
-      const blob = await res.blob();
-      // Trigger download
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(a.href);
+      const packSignedUrl = res.headers.get("x-pack-signed-url") ?? "";
+      // Trigger download — use signed Storage URL if available (avoids loading into memory)
+      if (packSignedUrl) {
+        const a = document.createElement("a");
+        a.href = packSignedUrl;
+        a.download = filename;
+        a.click();
+      } else {
+        const blob = await res.blob();
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }
       // Build a representative contents list
       const contents: string[] = [
         `${filename.replace(".zip", ".als")} — Ableton Live 11/12 project`,

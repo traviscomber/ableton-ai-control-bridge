@@ -651,29 +651,42 @@ export async function buildAbletonPack(input: AbletonPackInput): Promise<Ableton
 
   const entries: ZipEntry[] = [];
 
+  // ── Helper: fetch binary from signed URL or decode from b64 ─────────────────
+  async function resolveBuffer(b64: string, url: string): Promise<Buffer> {
+    if (b64) return Buffer.from(b64, "base64");
+    if (url) {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Failed to fetch from Storage: ${url} (${res.status})`);
+      return Buffer.from(await res.arrayBuffer());
+    }
+    throw new Error("No b64 data or storage URL available for file");
+  }
+
   // ── 1. WAV stems ────────────────────────────────────────────────────────────
   const stemForMix: SamplepPackStem = {
-    name: "master_mix",
-    stem_type: "mix",
-    wav_b64: pipeline.final_wav.wav_b64,
-    sampleRate: 48000,
-    bitDepth: 24,
+    name:        "master_mix",
+    stem_type:   "mix",
+    wav_b64:     pipeline.final_wav.wav_b64,
+    wav_url:     pipeline.final_wav.wav_url  ?? "",
+    wav_path:    pipeline.final_wav.wav_path ?? "",
+    sampleRate:  48000,
+    bitDepth:    24,
     durationSec: pipeline.final_wav.durationSec,
-    sizeBytes: pipeline.final_wav.sizeBytes,
+    sizeBytes:   pipeline.final_wav.sizeBytes,
   };
 
   for (const stem of pipeline.samplepack.stems) {
-    const data = Buffer.from(stem.wav_b64, "base64");
+    const data = await resolveBuffer(stem.wav_b64, stem.wav_url);
     entries.push({ path: `${root}Samples/Originals/${stem.stem_type}.wav`, data });
   }
   entries.push({
     path: `${root}Samples/Originals/master_mix.wav`,
-    data: Buffer.from(pipeline.final_wav.wav_b64, "base64"),
+    data: await resolveBuffer(pipeline.final_wav.wav_b64, pipeline.final_wav.wav_url ?? ""),
   });
 
   // ── 2. MIDI files ───────────────────────────────────────────────────────────
   for (const midi of pipeline.midis) {
-    const data = Buffer.from(midi.midi_b64, "base64");
+    const data = await resolveBuffer(midi.midi_b64, midi.midi_url);
     entries.push({ path: `${root}MIDI Clips/${midi.filename}`, data });
   }
 

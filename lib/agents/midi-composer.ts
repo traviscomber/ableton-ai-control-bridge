@@ -50,14 +50,16 @@ export interface MusicStructure {
 }
 
 export interface MidiStemFile {
-  stem: string;
-  filename: string;
-  midi_b64: string;
-  notes_count: number;
+  stem:           string;
+  filename:       string;
+  midi_b64:       string;  // stripped to "" after upload to Supabase
+  midi_url:       string;  // signed Supabase Storage URL
+  midi_path:      string;  // storage path for re-signing
+  notes_count:    number;
   duration_beats: number;
-  channel: number;
-  track_type: "drums" | "melodic";
-  description: string;
+  channel:        number;
+  track_type:     "drums" | "melodic";
+  description:    string;
 }
 
 export interface MidiComposerInput {
@@ -365,12 +367,14 @@ export function composeMidiPerStem(input: MidiComposerInput): MidiStemFile[] {
     const totalBeats = bars * 4;
     return {
       stem,
-      filename: `${stem}-${variant}.mid`,
-      midi_b64: buf.toString("base64"),
-      notes_count: notes.length,
+      filename:       `${stem}-${variant}.mid`,
+      midi_b64:       buf.toString("base64"),
+      midi_url:       "",
+      midi_path:      "",
+      notes_count:    notes.length,
       duration_beats: totalBeats,
       channel,
-      track_type: trackType,
+      track_type:     trackType,
       description,
     };
   };

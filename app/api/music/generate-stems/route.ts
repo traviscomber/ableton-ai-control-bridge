@@ -30,6 +30,8 @@ import { executeComplianceCheckerAgent } from "@/lib/agents/compliance-checker";
 import { renderSamplePack } from "@/lib/synth/sample-synth";
 import type { StemSampleGroup } from "@/lib/synth/sample-synth";
 import type { StemChannel } from "@/lib/synth/mastering";
+import { uploadProduction, saveProductionRecord } from "@/lib/supabase/storage";
+import { randomUUID } from "crypto";
 
 export type { StemSampleGroup };
 
@@ -193,31 +195,38 @@ export interface SampleHit {
   midi_note:      number;
   velocity:       number;
   velocity_label: "soft" | "medium" | "hard";
-  wav_b64:        string;
-  midi_b64:       string;
+  wav_b64:        string;  // stripped from response after upload (empty string)
+  midi_b64:       string;  // stripped from response after upload (empty string)
+  wav_url:        string;  // signed Supabase URL
+  midi_url:       string;  // signed Supabase URL
+  wav_path:       string;  // storage path for re-signing
   duration_ms:    number;
   size_bytes:     number;
 }
 
 export interface SamplepPackStem {
-  name: string;
-  stem_type: string;
-  wav_b64: string;
-  sampleRate: number;
-  bitDepth: number;
-  durationSec: number;
-  sizeBytes: number;
+  name:         string;
+  stem_type:    string;
+  wav_b64:      string;  // stripped from response after upload (empty string)
+  wav_url:      string;  // signed Supabase URL
+  wav_path:     string;  // storage path for re-signing
+  sampleRate:   number;
+  bitDepth:     number;
+  durationSec:  number;
+  sizeBytes:    number;
 }
 
 export interface MidiFile {
-  stem: string;
-  filename: string;
-  midi_b64: string;
-  notes_count: number;
+  stem:           string;
+  filename:       string;
+  midi_b64:       string;  // stripped from response after upload (empty string)
+  midi_url:       string;  // signed Supabase URL
+  midi_path:      string;  // storage path for re-signing
+  notes_count:    number;
   duration_beats: number;
-  channel: number;
-  track_type: "drums" | "melodic";
-  description: string;
+  channel:        number;
+  track_type:     "drums" | "melodic";
+  description:    string;
 }
 
 export interface FullPipelineResponse {
@@ -273,7 +282,9 @@ export interface FullPipelineResponse {
   };
   // Stage 5
   final_wav: {
-    wav_b64: string;
+    wav_b64:  string;  // stripped after upload
+    wav_url:  string;  // signed Supabase URL
+    wav_path: string;  // storage path
     lufs: number;
     truePeak: number;
     dynamicRange: number;
@@ -281,6 +292,7 @@ export interface FullPipelineResponse {
     sizeBytes: number;
   };
   // Meta
+  production_id: string; // Supabase production record ID
   meta: {
     variant: Variant;
     bpm: number;
@@ -343,13 +355,15 @@ export async function POST(req: NextRequest) {
     const addStem = (type: string, buf: Float64Array, gainDb: number, pan: number, hpHz?: number, lpHz?: number) => {
       const wav = encodeWavMono(buf, { bitDepth: 24 });
       stems.push({
-        name: `${type}-${variant}`,
-        stem_type: type,
-        wav_b64: wav.toString("base64"),
-        sampleRate: SAMPLE_RATE,
-        bitDepth: 24,
+        name:        `${type}-${variant}`,
+        stem_type:   type,
+        wav_b64:     wav.toString("base64"),
+        wav_url:     "",
+        wav_path:    "",
+        sampleRate:  SAMPLE_RATE,
+        bitDepth:    24,
         durationSec: buf.length / SAMPLE_RATE,
-        sizeBytes: wav.length,
+        sizeBytes:   wav.length,
       });
       mixChannels.push({ buffer: buf, gainDb, pan, hpCutHz: hpHz, lpCutHz: lpHz });
     };
@@ -486,12 +500,14 @@ export async function POST(req: NextRequest) {
         bitDepth: 24,
       });
       finalWav = {
-        wav_b64: master.wavBuffer.toString("base64"),
-        lufs: master.lufs.integratedLufs,
-        truePeak: master.lufs.truePeakDbTP,
+        wav_b64:     master.wavBuffer.toString("base64"),
+        wav_url:     "",
+        wav_path:    "",
+        lufs:        master.lufs.integratedLufs,
+        truePeak:    master.lufs.truePeakDbTP,
         dynamicRange: master.lufs.dynamicRangeDb,
         durationSec: master.durationSec,
-        sizeBytes: master.wavBuffer.length,
+        sizeBytes:   master.wavBuffer.length,
       };
     }
 
@@ -517,7 +533,80 @@ export async function POST(req: NextRequest) {
       stems.reduce((s, r) => s + r.sizeBytes, 0) +
       (finalWav?.sizeBytes ?? 0);
 
+    // ── Upload all files to Supabase Storage ─────────────────────────────────
+    const productionId = randomUUID();
+    let storedPaths: Awaited<ReturnType<typeof uploadProduction>> | null = null;
+
+    try {
+      storedPaths = await uploadProduction({
+        productionId,
+        variant,
+        bpm,
+        stems:        stems.map(s => ({ stem_type: s.stem_type, name: s.name, wav_b64: s.wav_b64 })),
+        midis:        midis.map(m => ({ stem: m.stem, filename: m.filename, midi_b64: m.midi_b64 })),
+        sampleGroups: sampleGroups.map(g => ({
+          stem: g.stem,
+          samples: g.samples.map(s => ({ name: s.name, wav_b64: s.wav_b64, midi_b64: s.midi_b64 })),
+        })),
+        masterWav: { wav_b64: finalWav?.wav_b64 ?? "" },
+      });
+
+      // Persist metadata record
+      await saveProductionRecord({
+        productionId,
+        variant,
+        bpm,
+        key:           preset.key,
+        bars,
+        structureJson: structure,
+        qualityJson:   {},  // filled below
+        finalWavMeta:  { lufs: finalWav?.lufs, truePeak: finalWav?.truePeak, durationSec: finalWav?.durationSec },
+        stemsPaths:    Object.fromEntries(Object.entries(storedPaths.stems).map(([k, v]) => [k, v.path])),
+        midiPaths:     Object.fromEntries(Object.entries(storedPaths.midis).map(([k, v]) => [k, v.path])),
+        samplePaths:   Object.fromEntries(Object.entries(storedPaths.sampleGroups).map(([k, vs]) => [k, vs.map(v => v.path)])),
+        pipelineMs:    Date.now() - start,
+        totalSizeBytes: totalSizeBytes,
+      });
+
+      stagesCompleted.push("storage");
+    } catch (storageErr) {
+      // Non-fatal — log and continue without storage URLs
+      console.error("[generate-stems] Storage upload failed:", storageErr);
+    }
+
+    // Populate URL fields and strip base64 from response objects
+    for (const stem of stems) {
+      const stored = storedPaths?.stems[stem.stem_type];
+      stem.wav_url  = stored?.url  ?? "";
+      stem.wav_path = stored?.path ?? "";
+      stem.wav_b64  = "";  // strip — no longer needed in response
+    }
+    for (const midi of midis) {
+      const stored = storedPaths?.midis[midi.stem];
+      midi.midi_url  = stored?.url  ?? "";
+      midi.midi_path = stored?.path ?? "";
+      midi.midi_b64  = "";
+    }
+    for (const group of sampleGroups) {
+      const storedGroup = storedPaths?.sampleGroups[group.stem] ?? [];
+      group.samples.forEach((s, i) => {
+        s.wav_url  = storedGroup[i]?.url  ?? "";
+        s.wav_path = storedGroup[i]?.path ?? "";
+        s.wav_b64  = "";
+        s.midi_b64 = "";
+        // MIDI for samples: we don't upload midi for samples individually yet, keep midi_url empty
+        s.midi_url = "";
+      });
+    }
+    if (finalWav) {
+      const stored = storedPaths?.masterWav;
+      finalWav.wav_url  = stored?.url  ?? "";
+      finalWav.wav_path = stored?.path ?? "";
+      finalWav.wav_b64  = "";
+    }
+
     const response: FullPipelineResponse = {
+      production_id: productionId,
       structure,
       samplepack: {
         stems,
@@ -565,12 +654,14 @@ export async function POST(req: NextRequest) {
         },
       },
       final_wav: finalWav ?? {
-        wav_b64: "",
-        lufs: -14,
-        truePeak: -0.3,
+        wav_b64:     "",
+        wav_url:     "",
+        wav_path:    "",
+        lufs:        -14,
+        truePeak:    -0.3,
         dynamicRange: 8,
         durationSec: 0,
-        sizeBytes: 0,
+        sizeBytes:   0,
       },
       meta: {
         variant,
