@@ -298,74 +298,23 @@ function buildAudioTrack(stem: SamplepPackStem, endBeat: number, isMix = false):
     </AudioTrack>`;
 }
 
-function buildSimpler(samplerPath: string, rootNote: number): string {
-  const simplerId = nextId();
-  return `
-          <Simpler Id="${simplerId}">
-            <LomId Value="0" />
-            <LomIdView Value="0" />
-            <IsExpanded Value="true" />
-            <On>
-              <LomId Value="0" />
-              <Manual Value="true" />
-              <AutomationTarget Id="${nextId()}" />
-              <ModulationTarget Id="${nextId()}" />
-            </On>
-            <ParametersListWrapper LomId="0" />
-            <Player>
-              <MultiSampleMap>
-                <SampleParts>
-                  <MultiSamplePart Id="0" HasImportedSlicePoints="false" NeedsAnalysisData="false">
-                    <LomId Value="0" />
-                    <Name Value="" />
-                    <Selection Value="true" />
-                    <IsActive Value="true" />
-                    <Solo Value="false" />
-                    <KeyRange>
-                      <Min Value="0" />
-                      <Max Value="127" />
-                      <CrossfadeMin Value="0" />
-                      <CrossfadeMax Value="127" />
-                    </KeyRange>
-                    <VelocityRange>
-                      <Min Value="1" />
-                      <Max Value="127" />
-                      <CrossfadeMin Value="1" />
-                      <CrossfadeMax Value="127" />
-                    </VelocityRange>
-                    <SelectorRange>
-                      <Min Value="0" />
-                      <Max Value="127" />
-                      <CrossfadeMin Value="0" />
-                      <CrossfadeMax Value="127" />
-                    </SelectorRange>
-                    <RootKey Value="${rootNote}" />
-                    <Detune Value="0" />
-                    <TuneScale Value="100" />
-                    <Panorama Value="0" />
-                    <Volume Value="1" />
-                    <Lfo />
-                    <Filter />
-                    <SampleRef>${buildFileRef(samplerPath)}
-                    </SampleRef>
-                    <SlicePoints />
-                    <ManageWarps Value="true" />
-                    <WarpOn Value="false" />
-                    <AutoWarpTolerance Value="4" />
-                    <WarpMarkers />
-                    <WarpMode Value="0" />
-                  </MultiSamplePart>
-                </SampleParts>
-              </MultiSampleMap>
-            </Player>
-          </Simpler>`;
-}
-
-function buildMidiTrack(stem: SamplepPackStem, endBeat: number, rootPitch: number): string {
+function buildMidiTrackWithZones(
+  stem:      SamplepPackStem,
+  endBeat:   number,
+  rootPitch: number,
+  zones?:    SimplerZone[],
+): string {
   const trackId = nextId();
-  const clipId = nextId();
-  const color = TRACK_COLORS[stem.stem_type] ?? 40;
-  const label = stem.stem_type.charAt(0).toUpperCase() + stem.stem_type.slice(1);
+  const clipId  = nextId();
+  const color   = TRACK_COLORS[stem.stem_type] ?? 40;
+  const label   = stem.stem_type.charAt(0).toUpperCase() + stem.stem_type.slice(1);
+
+  // Decide Simpler path: if we have zones, the primary samplePath comes from the first zone.
+  // Otherwise fall back to the single-stem WAV.
+  const simplerFallbackPath = `Samples/Originals/${stem.stem_type}.wav`;
+  const simplerXml = zones && zones.length > 0
+    ? buildSimpler(zones[0].samplePath, rootPitch, zones)
+    : buildSimpler(simplerFallbackPath, rootPitch);
 
   return `
     <MidiTrack Id="${trackId}">
@@ -429,7 +378,7 @@ function buildMidiTrack(stem: SamplepPackStem, endBeat: number, rootPitch: numbe
           <LowerDisplayString Value="" />
         </MidiOutputRouting>
         <Devices>
-          ${buildSimpler(`Samples/Originals/${stem.stem_type}.wav`, rootPitch)}
+          ${simplerXml}
         </Devices>
         <MixerDevice Id="${nextId()}">
           <LomId Value="0" />
@@ -458,15 +407,220 @@ function buildMidiTrack(stem: SamplepPackStem, endBeat: number, rootPitch: numbe
     </MidiTrack>`;
 }
 
+/** Backward-compatible single-zone track */
+function buildMidiTrack(stem: SamplepPackStem, endBeat: number, rootPitch: number): string {
+  return buildMidiTrackWithZones(stem, endBeat, rootPitch);
+}
+
+// ─── Scene colours: one colour ID per arrangement section type ───────────────
+
+const SCENE_COLORS: Record<string, number> = {
+  intro:     57,  // steel blue
+  build:     49,  // teal
+  drop:      18,  // deep orange — peak energy
+  verse:     40,  // light blue
+  chorus:    15,  // warm red
+  breakdown: 26,  // purple
+  peak:      33,  // green
+  outro:     64,  // white
+};
+
+// ─── Scenes builder ───────────────────────────────────────────────────────────
+
+interface ArrangementSection {
+  name:           string;
+  duration_bars:  number;
+  elements:       string[];
+  dynamics:       string;
+  notes:          string;
+}
+
+function buildScenesList(sections: ArrangementSection[], bpm: number): string {
+  const scenes: string[] = [];
+  let beatOffset = 0;
+
+  for (let i = 0; i < sections.length; i++) {
+    const sec        = sections[i];
+    const sceneBars  = sec.duration_bars;
+    const sceneBeats = sceneBars * 4;
+    const color      = SCENE_COLORS[sec.name.toLowerCase()] ?? -1;
+    const label      = sec.name.charAt(0).toUpperCase() + sec.name.slice(1)
+                     + ` (${sceneBars}bars / ${sec.dynamics})`;
+    const annotation = sec.notes.replace(/"/g, "'");
+
+    scenes.push(`
+      <Scene Id="${i}">
+        <LomId Value="0" />
+        <Name Value="${xmlAttr(label)}" />
+        <Annotation Value="${xmlAttr(annotation)}" />
+        <Color Value="${color}" />
+        <Tempo Value="${bpm}" />
+        <IsTempoEnabled Value="false" />
+        <TimeSignatureId Value="0" />
+        <IsTimeSignatureEnabled Value="false" />
+        <NextAction>
+          <NextAction>
+            <ActionType Value="4" />
+          </NextAction>
+        </NextAction>
+      </Scene>`);
+
+    beatOffset += sceneBeats;
+  }
+
+  // Fallback: if no sections provided, emit one default scene
+  if (scenes.length === 0) {
+    scenes.push(`
+      <Scene Id="0">
+        <LomId Value="0" />
+        <Name Value="Scene 1" />
+        <Annotation Value="" />
+        <Color Value="-1" />
+        <Tempo Value="${bpm}" />
+        <IsTempoEnabled Value="false" />
+        <TimeSignatureId Value="0" />
+        <IsTimeSignatureEnabled Value="false" />
+        <NextAction>
+          <NextAction>
+            <ActionType Value="4" />
+          </NextAction>
+        </NextAction>
+      </Scene>`);
+  }
+
+  return `<ScenesList>\n    ${scenes.join("\n    ")}\n    </ScenesList>`;
+}
+
+// ─── Multi-zone Simpler builder ────────────────────────────────────────────────
+// For melodic stems: one MultiSamplePart per sampled MIDI note,
+// key range splits at the midpoint between adjacent notes.
+// Ableton Simpler will interpolate pitch between zones automatically.
+
+interface SimplerZone {
+  samplePath: string;
+  rootNote:   number;
+  keyMin:     number;
+  keyMax:     number;
+}
+
+function buildSimpler(samplerPath: string, rootNote: number, zones?: SimplerZone[]): string {
+  const simplerId = nextId();
+
+  // Build SampleParts: one per zone, or single-zone fallback
+  const buildPart = (zone: SimplerZone, zoneId: number) => `
+                  <MultiSamplePart Id="${zoneId}" HasImportedSlicePoints="false" NeedsAnalysisData="false">
+                    <LomId Value="0" />
+                    <Name Value="" />
+                    <Selection Value="${zoneId === 0 ? "true" : "false"}" />
+                    <IsActive Value="true" />
+                    <Solo Value="false" />
+                    <KeyRange>
+                      <Min Value="${zone.keyMin}" />
+                      <Max Value="${zone.keyMax}" />
+                      <CrossfadeMin Value="${zone.keyMin}" />
+                      <CrossfadeMax Value="${zone.keyMax}" />
+                    </KeyRange>
+                    <VelocityRange>
+                      <Min Value="1" />
+                      <Max Value="127" />
+                      <CrossfadeMin Value="1" />
+                      <CrossfadeMax Value="127" />
+                    </VelocityRange>
+                    <SelectorRange>
+                      <Min Value="0" />
+                      <Max Value="127" />
+                      <CrossfadeMin Value="0" />
+                      <CrossfadeMax Value="127" />
+                    </SelectorRange>
+                    <RootKey Value="${zone.rootNote}" />
+                    <Detune Value="0" />
+                    <TuneScale Value="100" />
+                    <Panorama Value="0" />
+                    <Volume Value="1" />
+                    <Lfo />
+                    <Filter />
+                    <SampleRef>${buildFileRef(zone.samplePath)}
+                    </SampleRef>
+                    <SlicePoints />
+                    <ManageWarps Value="true" />
+                    <WarpOn Value="false" />
+                    <AutoWarpTolerance Value="4" />
+                    <WarpMarkers />
+                    <WarpMode Value="0" />
+                  </MultiSamplePart>`;
+
+  let partsXml: string;
+  if (zones && zones.length > 0) {
+    partsXml = zones.map((z, i) => buildPart(z, i)).join("");
+  } else {
+    // Single-zone fallback
+    partsXml = buildPart({ samplePath: samplerPath, rootNote, keyMin: 0, keyMax: 127 }, 0);
+  }
+
+  return `
+          <Simpler Id="${simplerId}">
+            <LomId Value="0" />
+            <LomIdView Value="0" />
+            <IsExpanded Value="true" />
+            <On>
+              <LomId Value="0" />
+              <Manual Value="true" />
+              <AutomationTarget Id="${nextId()}" />
+              <ModulationTarget Id="${nextId()}" />
+            </On>
+            <ParametersListWrapper LomId="0" />
+            <Player>
+              <MultiSampleMap>
+                <SampleParts>${partsXml}
+                </SampleParts>
+              </MultiSampleMap>
+            </Player>
+          </Simpler>`;
+}
+
+// ─── Build Simpler zones for a stem's sample group ────────────────────────────
+// samplePath is a template like "Samples/Originals/{stem}/{stem}_{note}.wav"
+
+function buildZonesForMelodicStem(stem: string, midiNotes: number[]): SimplerZone[] {
+  if (midiNotes.length === 0) return [];
+
+  const sorted = [...midiNotes].sort((a, b) => a - b);
+  const zones: SimplerZone[] = [];
+
+  for (let i = 0; i < sorted.length; i++) {
+    const note   = sorted[i];
+    const prev   = sorted[i - 1] ?? 0;
+    const next   = sorted[i + 1] ?? 127;
+    const keyMin = i === 0 ? 0   : Math.round((prev + note) / 2) + 1;
+    const keyMax = i === sorted.length - 1 ? 127 : Math.round((note + next) / 2);
+
+    zones.push({
+      samplePath: `Samples/Instruments/${stem}/${stem}_${noteName(note)}_med.wav`,
+      rootNote:   note,
+      keyMin,
+      keyMax,
+    });
+  }
+  return zones;
+}
+
+function noteName(n: number): string {
+  const NOTE_NAMES = ["C","Cs","D","Ds","E","F","Fs","G","Gs","A","As","B"];
+  return NOTE_NAMES[n % 12] + (Math.floor(n / 12) - 1);
+}
+
 // ─── Main ALS XML builder ─────────────────────────────────────────────────────
 
 interface BuildAlsInput {
   projectName: string;
-  bpm: number;
-  bars: number;
-  stems: SamplepPackStem[];
-  hasMix: boolean;
-  mixStem?: SamplepPackStem;
+  bpm:         number;
+  bars:        number;
+  stems:       SamplepPackStem[];
+  hasMix:      boolean;
+  mixStem?:    SamplepPackStem;
+  sections?:   ArrangementSection[];
+  /** Per-stem MIDI note lists for multi-zone Simpler mapping */
+  stemNotes?:  Record<string, number[]>;
 }
 
 // MIDI root notes per stem type
@@ -478,7 +632,7 @@ const STEM_ROOT_NOTES: Record<string, number> = {
 };
 
 // Drum stems rendered as AudioTracks; melodic as MidiTracks
-const DRUM_STEMS = new Set(["kick", "snare", "hihat", "noise"]);
+const DRUM_STEMS = new Set(["kick", "snare", "hihat", "openHihat", "clap", "perc", "noise"]);
 
 async function buildAlsXml(input: BuildAlsInput): Promise<Buffer> {
   trackIdCounter = 100; // start IDs at 100 to avoid collisions
@@ -490,8 +644,13 @@ async function buildAlsXml(input: BuildAlsInput): Promise<Buffer> {
     if (DRUM_STEMS.has(stem.stem_type)) {
       trackXml.push(buildAudioTrack(stem, endBeat));
     } else {
-      const root = STEM_ROOT_NOTES[stem.stem_type] ?? 60;
-      trackXml.push(buildMidiTrack(stem, endBeat, root));
+      const root  = STEM_ROOT_NOTES[stem.stem_type] ?? 60;
+      // Build multi-zone Simpler mapping if we have note data for this stem
+      const notes = input.stemNotes?.[stem.stem_type];
+      const zones = notes && notes.length > 0
+        ? buildZonesForMelodicStem(stem.stem_type, notes)
+        : undefined;
+      trackXml.push(buildMidiTrackWithZones(stem, endBeat, root, zones));
     }
   }
 
@@ -585,23 +744,7 @@ async function buildAlsXml(input: BuildAlsInput): Promise<Buffer> {
     <ContentLanes>
       <ContentLanes />
     </ContentLanes>
-    <ScenesList>
-      <Scene Id="0">
-        <LomId Value="0" />
-        <Name Value="Scene 1" />
-        <Annotation Value="" />
-        <Color Value="-1" />
-        <Tempo Value="${input.bpm}" />
-        <IsTempoEnabled Value="false" />
-        <TimeSignatureId Value="0" />
-        <IsTimeSignatureEnabled Value="false" />
-        <NextAction>
-          <NextAction>
-            <ActionType Value="4" />
-          </NextAction>
-        </NextAction>
-      </Scene>
-    </ScenesList>
+    ${buildScenesList(input.sections ?? [], input.bpm)}
     <MasterTrack>
       <LomId Value="0" />
       <LomIdView Value="0" />
@@ -629,11 +772,13 @@ async function buildAlsXml(input: BuildAlsInput): Promise<Buffer> {
 // ─── Public: build full pack ──────────────────────────────────────────────────
 
 export interface AbletonPackInput {
-  variant: string;
-  bpm: number;
-  bars: number;
-  key: string;
+  variant:  string;
+  bpm:      number;
+  bars:     number;
+  key:      string;
   pipeline: FullPipelineResponse;
+  /** Arrangement sections for Ableton Scene generation. Falls back to pipeline.structure.sections. */
+  sections?: ArrangementSection[];
 }
 
 export interface AbletonPackResult {
@@ -690,6 +835,36 @@ export async function buildAbletonPack(input: AbletonPackInput): Promise<Ableton
     entries.push({ path: `${root}MIDI Clips/${midi.filename}`, data });
   }
 
+  // ── 2b. Per-note one-shot samples (Instruments folder for Simpler zones) ─────
+  // Each melodic stem gets N samples named {stem}_{note}_med.wav under
+  // Samples/Instruments/{stem}/.  Drum stems get 3 velocity layers under
+  // Samples/Drums/{stem}/.
+  // These are what the multi-zone Simpler zones point to in the .als file.
+  let totalOneShotBytes = 0;
+  const oneShotLog: string[] = [];
+
+  for (const group of (pipeline.samplepack.sample_groups ?? [])) {
+    for (const hit of group.samples) {
+      const wavBuf = Buffer.from(hit.wav_b64, "base64");
+      let filePath: string;
+
+      if (group.category === "drum") {
+        // e.g. Samples/Drums/kick/kick_hard.wav
+        filePath = `${root}Samples/Drums/${group.stem}/${hit.name}.wav`;
+      } else {
+        // e.g. Samples/Instruments/bass/bass_C2_med.wav
+        const notePart = hit.note_name.replace("#", "s"); // C# → Cs (filesystem safe)
+        filePath = `${root}Samples/Instruments/${group.stem}/${group.stem}_${notePart}_med.wav`;
+      }
+
+      entries.push({ path: filePath, data: wavBuf });
+      totalOneShotBytes += wavBuf.length;
+    }
+    oneShotLog.push(
+      `  ${group.stem}: ${group.samples.length} samples (${group.category === "drum" ? "3 velocity layers" : group.samples.length + " notes"})`
+    );
+  }
+
   // ── 3. Max for Live device ──────────────────────────────────────────────────
   const noteNames = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
   const noteName = (n: number) => `${noteNames[n % 12]}${Math.floor(n / 12) - 1}`;
@@ -712,13 +887,27 @@ export async function buildAbletonPack(input: AbletonPackInput): Promise<Ableton
   entries.push({ path: `${root}Max for Live Devices/DARKSCO_Sampler.amxd`, data: m4lDevice });
 
   // ── 4. ALS file ─────────────────────────────────────────────────────────────
+  // Sections: prefer explicit input, fall back to pipeline structure
+  const arrangementSections = (input.sections ?? pipeline.structure?.sections ?? []) as ArrangementSection[];
+
+  // Build per-stem MIDI note lists from sample_groups (for multi-zone Simpler)
+  const stemNotes: Record<string, number[]> = {};
+  for (const group of (pipeline.samplepack.sample_groups ?? [])) {
+    if (group.category === "melodic") {
+      const uniqueNotes = [...new Set(group.samples.map((s) => s.midi_note))].sort((a, b) => a - b);
+      stemNotes[group.stem] = uniqueNotes;
+    }
+  }
+
   const alsBuffer = await buildAlsXml({
     projectName,
     bpm,
     bars,
-    stems: pipeline.samplepack.stems,
-    hasMix: true,
-    mixStem: stemForMix,
+    stems:    pipeline.samplepack.stems,
+    hasMix:   true,
+    mixStem:  stemForMix,
+    sections: arrangementSections,
+    stemNotes,
   });
   entries.push({ path: `${root}${projectName}.als`, data: alsBuffer });
 
@@ -729,12 +918,29 @@ export async function buildAbletonPack(input: AbletonPackInput): Promise<Ableton
     ``,
     `CONTENTS`,
     `--------`,
-    `${projectName}.als          — Ableton Live 11/12 project file`,
-    `                             Drag onto Ableton Live to open directly.`,
+    `${projectName}.als`,
+    `  Ableton Live 11/12 project file. Drag onto Ableton Live to open directly.`,
+    `  Pre-built tracks: AudioTrack per drum stem, MidiTrack+Simpler per melodic stem.`,
+    `  ${arrangementSections.length} Scenes: ${arrangementSections.map(s => s.name).join(", ")}`,
     ``,
-    `Samples/Originals/           — ${pipeline.samplepack.stems.length + 1} WAV stems (48kHz / 24-bit)`,
+    `Samples/Originals/           — ${pipeline.samplepack.stems.length + 1} full-length WAV stems (48kHz / 24-bit)`,
     ...pipeline.samplepack.stems.map((s) => `  ${s.stem_type}.wav  (${s.durationSec.toFixed(2)}s)`),
     `  master_mix.wav  (${pipeline.final_wav.durationSec.toFixed(2)}s — stereo master)`,
+    ``,
+    `Samples/Instruments/         — Multi-zone Simpler one-shot samples (melodic stems)`,
+    `  Loaded automatically by Simpler in each MidiTrack.`,
+    `  Play across the full MIDI keyboard range.`,
+    ...oneShotLog.filter((_, i) => {
+      const g = pipeline.samplepack.sample_groups?.[i];
+      return g?.category === "melodic";
+    }),
+    ``,
+    `Samples/Drums/               — Velocity-layered drum one-shot samples`,
+    `  3 layers per drum: soft (vel 50), medium (vel 90), hard (vel 120).`,
+    ...oneShotLog.filter((_, i) => {
+      const g = pipeline.samplepack.sample_groups?.[i];
+      return g?.category === "drum";
+    }),
     ``,
     `MIDI Clips/                  — ${pipeline.midis.length} MIDI files (Format 0 / 480 PPQ)`,
     ...pipeline.midis.map((m) => `  ${m.filename}  (${m.notes_count} notes, Ch ${m.channel})`),
@@ -742,6 +948,12 @@ export async function buildAbletonPack(input: AbletonPackInput): Promise<Ableton
     `Max for Live Devices/        — DARKSCO_Sampler.amxd`,
     `  Open in Ableton Live with Max for Live installed.`,
     `  Shows stem/channel/note mapping. MIDI router device.`,
+    ``,
+    `ARRANGEMENT SECTIONS`,
+    `--------------------`,
+    ...arrangementSections.map((s) =>
+      `  ${s.name.padEnd(12)} ${s.duration_bars} bars  [${s.dynamics.padEnd(8)}]  ${s.elements.join(", ")}`
+    ),
     ``,
     `PRODUCTION INFO`,
     `---------------`,
@@ -751,6 +963,14 @@ export async function buildAbletonPack(input: AbletonPackInput): Promise<Ableton
     `Bars:       ${bars}`,
     `LUFS:       ${pipeline.final_wav.lufs} LUFS integrated`,
     `True Peak:  ${pipeline.final_wav.truePeak} dBTP`,
+    `One-shots:  ${Math.round(totalOneShotBytes / 1024)} KB across all sample zones`,
+    ``,
+    `SIMPLER ZONES`,
+    `-------------`,
+    `Bass:  12 zones  C2–G5 (minor/major 3rd spacing) — 3 detuned saws + sub sine`,
+    `Pad:   10 zones  C3–A4 (root zones) — 6-voice supersaw + LFO filter + reverb`,
+    `Stab:  10 zones  C3–A4 — square+saw + saturated HP/LP band + tight ADSR`,
+    `Arp:   10 zones  C3–A4 — saw+triangle + delay echo + resonant LP`,
     ``,
     `Generated by DARKSCO AI Bridge — ableton-ai-control-bridge`,
     `https://github.com/traviscomber/ableton-ai-control-bridge`,
