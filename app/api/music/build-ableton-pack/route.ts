@@ -28,6 +28,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { buildAbletonPack } from "@/lib/synth/ableton-pack-builder";
+import { uploadPack, updateProductionPackPath } from "@/lib/supabase/storage";
 import type { FullPipelineResponse } from "@/app/api/music/generate-stems/route";
 
 export const runtime = "nodejs";
@@ -36,11 +37,12 @@ export const maxDuration = 120; // Pack generation can take a few seconds
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json() as {
-      pipeline: FullPipelineResponse;
-      variant: string;
-      bpm: number;
-      bars: number;
-      key: string;
+      pipeline:      FullPipelineResponse;
+      variant:       string;
+      bpm:           number;
+      bars:          number;
+      key:           string;
+      production_id?: string; // from generate-stems, used to link pack in DB
     };
 
     const { pipeline, variant, bpm, bars, key } = body;
@@ -69,6 +71,24 @@ export async function POST(req: NextRequest) {
     // Build the pack
     const result = await buildAbletonPack({ variant, bpm, bars, key, pipeline });
 
+    // Upload ZIP to Supabase Storage (non-fatal if it fails)
+    let packSignedUrl = "";
+    try {
+      const productionId = body.production_id ?? `${variant}-${bpm}-${Date.now()}`;
+      const stored = await uploadPack({
+        productionId,
+        filename: result.filename,
+        zipBuffer: result.zipBuffer,
+      });
+      packSignedUrl = stored.url;
+      // Link pack path in DB if production_id was provided
+      if (body.production_id) {
+        await updateProductionPackPath(body.production_id, stored.path);
+      }
+    } catch (storageErr) {
+      console.error("[build-ableton-pack] Storage upload failed:", storageErr);
+    }
+
     // Return as binary ZIP download — slice to a clean ArrayBuffer for NextResponse
     const zipAb = result.zipBuffer.buffer.slice(
       result.zipBuffer.byteOffset,
@@ -83,6 +103,7 @@ export async function POST(req: NextRequest) {
         "X-Pack-Project-Name": result.projectName,
         "X-Pack-File-Count": String(result.contents.length),
         "X-Pack-Size-Bytes": String(result.sizeBytes),
+        ...(packSignedUrl ? { "X-Pack-Signed-Url": packSignedUrl } : {}),
       },
     });
   } catch (err) {
