@@ -316,7 +316,7 @@ export interface ReasoningLog {
 export interface MidiTrack {
   id: string;
   production_id: string;
-  track_type: "kick" | "snare" | "hihat" | "bass" | "pad" | "synth" | "arp" | "fx" | "vocal";
+  track_type: "kick" | "snare" | "hihat" | "perc" | "bass" | "pad" | "synth" | "arp" | "fx" | "vocal";
   track_number: number;
   channel: number;
   notes: Array<{
