@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ProductionCreator } from "@/components/music/production-creator";
 import { ReasoningDisplay } from "@/components/music/reasoning-display";
 import { MidiPreview } from "@/components/music/midi-preview";
@@ -51,12 +51,21 @@ const STATUS_ORDER = ["brief", "reasoning", "midi", "arrangement", "quality", "e
 
 // ─── Main Page ─────────────────────────────────────────────────────────
 
+interface DbSetupStatus {
+  status: "checking" | "ready" | "missing_tables" | "error";
+  missing_tables?: string[];
+  schema_sql?: string;
+  instructions?: string[];
+}
+
 export default function MusicProductionPage() {
   const [soundbanks, setSoundbanks] = useState<Soundbank[]>([]);
   const [production, setProduction] = useState<Production | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("brief");
   const [running, setRunning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [dbStatus, setDbStatus] = useState<DbSetupStatus>({ status: "checking" });
+  const [showSql, setShowSql] = useState(false);
 
   // Session state for API responses
   const [reasoningLog, setReasoningLog] = useState<{ model: string; tokens: number; cost: number; durationMs: number } | null>(null);
@@ -68,13 +77,39 @@ export default function MusicProductionPage() {
     ableton_project: { export_steps: string[]; project_name: string };
   } | null>(null);
 
-  // Load soundbanks
-  useEffect(() => {
-    fetch("/api/music/soundbanks")
-      .then(r => r.json())
-      .then(d => setSoundbanks(d.soundbanks ?? []))
-      .catch(() => {});
+  const loadSoundbanks = useCallback(async () => {
+    try {
+      const res = await fetch("/api/music/soundbanks");
+      if (!res.ok) return;
+      const d = await res.json();
+      setSoundbanks(d.soundbanks ?? []);
+    } catch {
+      // silently ignore — DB may not be set up yet
+    }
   }, []);
+
+  // Check DB setup then load soundbanks
+  useEffect(() => {
+    fetch("/api/music/setup-production-db")
+      .then(r => r.json())
+      .then(d => {
+        if (d.status === "ready") {
+          setDbStatus({ status: "ready" });
+          loadSoundbanks();
+        } else {
+          setDbStatus({
+            status: "missing_tables",
+            missing_tables: d.missing_tables ?? [],
+            schema_sql: d.schema_sql ?? "",
+            instructions: d.instructions ?? [],
+          });
+        }
+      })
+      .catch(() => {
+        setDbStatus({ status: "error" });
+        loadSoundbanks(); // try anyway
+      });
+  }, [loadSoundbanks]);
 
   const currentStatusIdx = production ? STATUS_ORDER.indexOf(production.status) : -1;
 
@@ -175,6 +210,59 @@ export default function MusicProductionPage() {
           <span>48kHz/24-bit WAV</span>
         </div>
       </header>
+
+      {/* DB setup banner */}
+      {dbStatus.status === "missing_tables" && (
+        <div className="border-b border-amber-500/30 bg-amber-500/5 px-6 py-3">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-mono text-amber-400 font-semibold">
+                Database tables required — run the SQL below in your Supabase dashboard
+              </p>
+              <p className="text-[11px] font-mono text-amber-400/70 mt-0.5">
+                Missing: {dbStatus.missing_tables?.join(", ")}
+              </p>
+              {dbStatus.instructions && (
+                <ol className="mt-2 space-y-0.5">
+                  {dbStatus.instructions.map((step, i) => (
+                    <li key={i} className="text-[11px] font-mono text-amber-400/60">{step}</li>
+                  ))}
+                </ol>
+              )}
+              <button
+                onClick={() => setShowSql(v => !v)}
+                className="mt-2 text-[11px] font-mono text-amber-400 underline underline-offset-2 hover:text-amber-300"
+              >
+                {showSql ? "Hide SQL" : "Show SQL to run"}
+              </button>
+              {showSql && dbStatus.schema_sql && (
+                <pre className="mt-2 max-h-48 overflow-y-auto bg-background border border-amber-500/20 rounded p-3 text-[10px] font-mono text-text-dim whitespace-pre-wrap break-all">
+                  {dbStatus.schema_sql}
+                </pre>
+              )}
+            </div>
+            <button
+              onClick={() => {
+                setDbStatus({ status: "checking" });
+                fetch("/api/music/setup-production-db")
+                  .then(r => r.json())
+                  .then(d => {
+                    if (d.status === "ready") {
+                      setDbStatus({ status: "ready" });
+                      loadSoundbanks();
+                    } else {
+                      setDbStatus({ status: "missing_tables", ...d });
+                    }
+                  })
+                  .catch(() => setDbStatus({ status: "error" }));
+              }}
+              className="shrink-0 text-[11px] font-mono text-amber-400 border border-amber-500/30 rounded px-2 py-1 hover:bg-amber-500/10"
+            >
+              Re-check
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex h-[calc(100vh-49px)]">
         {/* Left sidebar — pipeline steps */}
