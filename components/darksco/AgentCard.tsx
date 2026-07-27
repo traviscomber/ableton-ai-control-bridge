@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Play, AlertCircle, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Agent, AgentDecision, AgentStatus, AgentConfidence } from "@/lib/types";
+import type { Agent, AgentDecision, AgentStatus, AgentConfidence, AgentResponse, AgentId } from "@/lib/types";
 
 const STATUS_CONFIG: Record<AgentStatus, { label: string; textColor: string; bgColor: string; border: string }> = {
   READY:   { label: "READY",   textColor: "text-[#4dffa0]", bgColor: "bg-[#4dffa0]/10", border: "border-[#4dffa0]/30" },
@@ -29,13 +29,18 @@ const CONFIDENCE_COLORS: Record<AgentConfidence, string> = {
 interface AgentCardProps {
   agent: Agent;
   decision?: AgentDecision;
+  response?: AgentResponse; // Shared protocol response from agent operation
+  onInvoke?: (agentId: AgentId) => void;
+  isLoading?: boolean;
 }
 
-export function AgentCard({ agent, decision }: AgentCardProps) {
+export function AgentCard({ agent, decision, response, onInvoke, isLoading }: AgentCardProps) {
   const [expanded, setExpanded] = useState(false);
 
-  const status: AgentStatus = decision?.status ?? "IDLE";
+  // Use response status if available, otherwise fall back to decision
+  const status: AgentStatus = (response?.status as AgentStatus) || decision?.status ?? "IDLE";
   const sc = STATUS_CONFIG[status];
+  const confidence = response?.confidence || decision?.confidence;
 
   return (
     <article
@@ -75,10 +80,24 @@ export function AgentCard({ agent, decision }: AgentCardProps) {
             >
               {sc.label}
             </span>
-            {decision?.confidence && (
-              <span className={cn("text-[10px] font-mono font-bold", CONFIDENCE_COLORS[decision.confidence])}>
-                {CONFIDENCE_LABELS[decision.confidence]}
+            {confidence && (
+              <span className={cn("text-[10px] font-mono font-bold", CONFIDENCE_COLORS[confidence])}>
+                {CONFIDENCE_LABELS[confidence]}
               </span>
+            )}
+            {/* Invoke button if handler provided and not yet responded */}
+            {onInvoke && !response && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onInvoke(agent.id);
+                }}
+                disabled={isLoading}
+                className="p-1 hover:bg-brand/10 rounded transition-colors disabled:opacity-50"
+                title={`Invoke ${agent.name}`}
+              >
+                <Play className="w-3.5 h-3.5 text-brand" />
+              </button>
             )}
             <span className="text-muted-foreground">
               {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -87,55 +106,88 @@ export function AgentCard({ agent, decision }: AgentCardProps) {
         </div>
 
         {/* Summary */}
-        {decision?.summary && (
+        {(decision?.summary || response?.decision || response?.recommendation) && (
           <p className="mt-2.5 text-xs text-muted-foreground leading-relaxed line-clamp-2">
-            {decision.summary}
+            {decision?.summary || response?.decision || response?.recommendation}
           </p>
         )}
-        {!decision && (
-          <p className="mt-2.5 text-xs text-muted-foreground italic">No decision recorded yet.</p>
+        {!decision && !response && (
+          <p className="mt-2.5 text-xs text-muted-foreground italic">
+            {isLoading ? "Loading operation..." : "No decision recorded yet."}
+          </p>
         )}
       </div>
 
       {/* Expanded details */}
-      {expanded && decision && (
+      {expanded && (response || decision) && (
         <div className="px-4 pb-4 border-t border-border mt-0 pt-3 space-y-3">
-          {decision.actions && decision.actions.length > 0 && (
+          {/* Facts/Findings */}
+          {(response?.facts || response?.findings) && (
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-1.5">
+                {response.facts ? "Facts" : "Findings"}
+              </p>
+              <ul className="space-y-1">
+                {(response.facts || response.findings)?.map((f, i) => (
+                  <li key={i} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                    <span className="text-brand mt-0.5">→</span>
+                    <span className="line-clamp-2">{f}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Actions */}
+          {(response?.actions || decision?.actions) && (response?.actions?.length || decision?.actions?.length) ? (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-brand mb-1.5">
                 Actions
               </p>
-              <ul className="space-y-1">
-                {decision.actions.map((a, i) => (
+              <ul className="space-y-1.5">
+                {(response?.actions || decision?.actions)?.map((a, i) => (
                   <li key={i} className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                    <span className="text-brand mt-0.5">›</span>
-                    {a}
+                    <span className="text-brand mt-0.5 flex-shrink-0">›</span>
+                    <span className="line-clamp-2">{typeof a === "string" ? a : a.description || `${a.owner}: ${a.description}`}</span>
                   </li>
                 ))}
               </ul>
             </div>
-          )}
+          ) : null}
 
-          {decision.blockers && decision.blockers.length > 0 && (
+          {/* Risks/Blockers */}
+          {(response?.risks || response?.blockers || decision?.blockers) && (response?.risks?.length || response?.blockers?.length || decision?.blockers?.length) ? (
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-widest text-[#ff4d4d] mb-1.5">
-                Blockers
+                {response?.risks?.length ? "Risks" : "Blockers"}
               </p>
               <ul className="space-y-1">
-                {decision.blockers.map((b, i) => (
+                {(response?.risks || response?.blockers || decision?.blockers)?.map((b, i) => (
                   <li key={i} className="flex items-start gap-1.5 text-xs text-[#ff4d4d]/80">
-                    <span className="mt-0.5">!</span>
-                    {b}
+                    <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                    <span className="line-clamp-2">{b}</span>
                   </li>
                 ))}
               </ul>
             </div>
+          ) : null}
+
+          {/* Next Agent Handoff */}
+          {response?.nextAgent && (
+            <div className="text-[10px] text-muted-foreground italic border-t border-border pt-2">
+              Next: <span className="font-mono text-brand">{response.nextAgent}</span>
+              {response.requiredInput && ` — requires ${response.requiredInput}`}
+            </div>
           )}
 
-          <div className="text-[10px] text-muted-foreground font-mono">
-            Updated {new Date(decision.updatedAt).toLocaleString("en-US", {
-              month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
-            })}
+          <div className="text-[10px] text-muted-foreground font-mono pt-2">
+            {response?.respondedAt || decision?.updatedAt ? (
+              <>Responded {new Date(response?.respondedAt || decision?.updatedAt || "").toLocaleString("en-US", {
+                month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
+              })}</>
+            ) : (
+              <>Pending</>
+            )}
           </div>
         </div>
       )}

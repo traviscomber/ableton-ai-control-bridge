@@ -128,3 +128,79 @@ export interface CatalogueTrack {
   releasedAt?: string;
   tags: string[];
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// DARKSCO Shared Agent Protocol — all agents use this output format
+// ────────────────────────────────────────────────────────────────────────────
+
+export type SharedProtocolStatus =
+  // Darkside statuses
+  | "ACTIVE"
+  | "BLOCKED"
+  | "COMPLETE"
+  // Doom statuses
+  | "APPROVED"
+  | "REVISE"
+  | "DELAY"
+  | "REJECT"
+  // Venom statuses
+  | "APPROVE"
+  | "REVISE"
+  | "REJECT"
+  // Hela statuses
+  | "APPROVE"
+  | "REVISE"
+  | "REJECT"
+  // Loki statuses
+  | "READY"
+  | "BLOCKED"
+  | "PUBLISHED"
+  // Bane statuses
+  | "VALID SIGNAL"
+  | "INCONCLUSIVE"
+  | "ACTION REQUIRED"
+  // Thanos statuses
+  | "COMMERCIAL READY"
+  | "BLOCKED"
+  | "NEEDS DECISION";
+
+export interface AgentAction {
+  owner: AgentId;
+  description: string;
+  deadline?: string;
+  successMetric: string;
+}
+
+export interface AgentResponse {
+  agentId: AgentId;
+  status: SharedProtocolStatus;
+  confidence: AgentConfidence;
+  facts?: string[];
+  findings?: string[];
+  material?: string;
+  decision?: string;
+  recommendation?: string;
+  sequence?: AgentAction[];
+  revision?: AgentAction[];
+  actions: AgentAction[];
+  risks?: string[];
+  blockers?: string[];
+  gaps?: string[];
+  nextAgent?: AgentId;
+  requiredInput?: string;
+  respondedAt: string;
+}
+
+export interface DarkscoWorkflow {
+  id: string;
+  projectId: string;
+  objective: string;
+  deadline: string;
+  status: "pending" | "in-progress" | "blocked" | "complete";
+  plan?: AgentResponse; // Darkside plan
+  agents: Partial<Record<AgentId, AgentResponse>>;
+  qualityGates: QualityGate[];
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
