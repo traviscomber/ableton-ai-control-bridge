@@ -491,25 +491,24 @@ export async function POST(req: NextRequest) {
     });
 
     // ── STAGE 5: Final WAV Master ────────────────────────────────────────────
-    let finalWav: FullPipelineResponse["final_wav"] | undefined;
-    if (includeMix && mixChannels.length > 0) {
-      const master = masterMix(mixChannels, {
-        ...preset.masterParams,
-        targetLufs: -14,
-        ceilingDbTP: -0.3,
-        bitDepth: 24,
-      });
-      finalWav = {
-        wav_b64:     master.wavBuffer.toString("base64"),
-        wav_url:     "",
-        wav_path:    "",
-        lufs:        master.lufs.integratedLufs,
-        truePeak:    master.lufs.truePeakDbTP,
-        dynamicRange: master.lufs.dynamicRangeDb,
-        durationSec: master.durationSec,
-        sizeBytes:   master.wavBuffer.length,
-      };
-    }
+    // Always render the final master mix (production essential)
+    let finalWav: FullPipelineResponse["final_wav"];
+    const master = masterMix(mixChannels, {
+      ...preset.masterParams,
+      targetLufs: -14,
+      ceilingDbTP: -0.3,
+      bitDepth: 24,
+    });
+    finalWav = {
+      wav_b64:     master.wavBuffer.toString("base64"),
+      wav_url:     "",
+      wav_path:    "",
+      lufs:        master.lufs.integratedLufs,
+      truePeak:    master.lufs.truePeakDbTP,
+      dynamicRange: master.lufs.dynamicRangeDb,
+      durationSec: master.durationSec,
+      sizeBytes:   master.wavBuffer.length,
+    };
 
     // Run compliance checker after we know LUFS
     const ccResult = await executeComplianceCheckerAgent({
@@ -653,16 +652,7 @@ export async function POST(req: NextRequest) {
           release_ready: ccResult.release_ready,
         },
       },
-      final_wav: finalWav ?? {
-        wav_b64:     "",
-        wav_url:     "",
-        wav_path:    "",
-        lufs:        -14,
-        truePeak:    -0.3,
-        dynamicRange: 8,
-        durationSec: 0,
-        sizeBytes:   0,
-      },
+      final_wav: finalWav,
       meta: {
         variant,
         bpm,
