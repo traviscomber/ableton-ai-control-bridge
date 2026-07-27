@@ -1,0 +1,286 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "date": "2026-07-27",
+    "author": "DARKSCO Production",
+    "description": "Complete synth preset library for DARKSCO Pro Pack"
+  },
+  "wavetable_presets": [
+    {
+      "id": "wt_soft_init",
+      "name": "Soft Init Osc",
+      "description": "Foundation layer — warm, clean, versatile",
+      "wavetable": "Wavetables/Init Osc",
+      "config": {
+        "tableIndex": 0,
+        "transpose": 0,
+        "detune": 0,
+        "unison": 1,
+        "filterFreq": 0.6,
+        "resonance": 0.3,
+        "fmAmount": 0
+      },
+      "use_cases": ["Pad foundations", "Warm textures", "Smooth sustain"]
+    },
+    {
+      "id": "wt_bright_square",
+      "name": "Bright Square",
+      "description": "Top layer — sparkly, punchy, adds brightness",
+      "wavetable": "Wavetables/Square",
+      "config": {
+        "tableIndex": 0,
+        "transpose": 12,
+        "detune": 0,
+        "unison": 2,
+        "filterFreq": 0.75,
+        "resonance": 0.2,
+        "fmAmount": 0
+      },
+      "use_cases": ["Bright stabs", "High textures", "Synth leads"]
+    },
+    {
+      "id": "wt_dark_sawtooth",
+      "name": "Dark Sawtooth",
+      "description": "Sub layer — deep, powerful, aggressive",
+      "wavetable": "Wavetables/Sawtooth",
+      "config": {
+        "tableIndex": 0,
+        "transpose": -12,
+        "detune": 12,
+        "unison": 3,
+        "filterFreq": 0.35,
+        "resonance": 0.5,
+        "fmAmount": 0.2
+      },
+      "use_cases": ["Sub bass", "Deep pads", "Aggressive stabs"]
+    },
+    {
+      "id": "wt_modulated_fm",
+      "name": "FM Modulated Saw",
+      "description": "Evolving texture — wavetable with internal FM",
+      "wavetable": "Wavetables/Sawtooth",
+      "config": {
+        "tableIndex": 0.5,
+        "transpose": 0,
+        "detune": 8,
+        "unison": 2,
+        "filterFreq": 0.5,
+        "resonance": 0.4,
+        "fmAmount": 0.6
+      },
+      "use_cases": ["Evolving pads", "Moving textures", "Lead synths"]
+    }
+  ],
+  "operator_presets": [
+    {
+      "id": "op_bell",
+      "name": "Bell FM",
+      "description": "Classic FM bell tone — harmonic, glassy, resonant",
+      "preset": "bell",
+      "config": {
+        "algorithm": 3,
+        "ratio": [1, 2, 0, 0],
+        "fm_index": 8,
+        "voices": 12
+      },
+      "use_cases": ["Glassy pads", "Bell textures", "Atmospheric fx"],
+      "macro_mapping": {
+        "1": "Filter cutoff",
+        "2": "Filter resonance",
+        "3": "FM index amount"
+      }
+    },
+    {
+      "id": "op_pad",
+      "name": "Warm Pad FM",
+      "description": "Smooth evolution — dual modulator, consonant harmonics",
+      "preset": "pad",
+      "config": {
+        "algorithm": 2,
+        "ratio": [1, 1.5, 2, 0],
+        "fm_index": 4,
+        "voices": 12
+      },
+      "use_cases": ["Warm pads", "Evolving textures", "Background atm"],
+      "macro_mapping": {
+        "1": "Filter cutoff",
+        "3": "FM index depth"
+      }
+    },
+    {
+      "id": "op_bright",
+      "name": "Bright Lead FM",
+      "description": "Punchy synth — cascaded modulators, bright timbre",
+      "preset": "bright",
+      "config": {
+        "algorithm": 1,
+        "ratio": [1, 2, 4, 8],
+        "fm_index": 6,
+        "voices": 12
+      },
+      "use_cases": ["Bright stabs", "Lead synth", "Percussive"],
+      "macro_mapping": {
+        "1": "Filter cutoff",
+        "2": "Modulator volume"
+      }
+    },
+    {
+      "id": "op_metallic",
+      "name": "Metallic Bell FM",
+      "description": "Inharmonic bells — complex feedback, aggressive",
+      "preset": "metallic",
+      "config": {
+        "algorithm": 4,
+        "ratio": [1, 0.5, 3, 5],
+        "fm_index": 10,
+        "voices": 12
+      },
+      "use_cases": ["Metallic bells", "Clang tones", "Sound design"],
+      "macro_mapping": {
+        "1": "Filter cutoff",
+        "3": "FM modulation amount"
+      }
+    }
+  ],
+  "midi_effects_chains": [
+    {
+      "id": "standard_melodic",
+      "name": "Standard Melodic",
+      "description": "Scale + Arpeggiator for harmonic control",
+      "effects": [
+        {
+          "type": "Scale",
+          "key": 0,
+          "mode": 0,
+          "active": true
+        },
+        {
+          "type": "Arpeggiator",
+          "mode": 0,
+          "rate": 3,
+          "octaves": 1,
+          "active": false
+        }
+      ]
+    },
+    {
+      "id": "advanced_performance",
+      "name": "Advanced Performance",
+      "description": "Scale + Chord + Arpeggiator + Note Length",
+      "effects": [
+        {
+          "type": "Scale",
+          "key": 0,
+          "mode": 0,
+          "active": true
+        },
+        {
+          "type": "Chord",
+          "chord_type": 0,
+          "active": false
+        },
+        {
+          "type": "Arpeggiator",
+          "mode": 0,
+          "rate": 3,
+          "octaves": 1,
+          "active": false
+        },
+        {
+          "type": "Note Length",
+          "length": 0.5,
+          "randomness": 0.3,
+          "active": false
+        }
+      ]
+    },
+    {
+      "id": "polyrhythmic_arp",
+      "name": "Polyrhythmic Arp",
+      "description": "Dual arpeggiators for complex rhythms",
+      "effects": [
+        {
+          "type": "Scale",
+          "key": 0,
+          "mode": 0,
+          "active": true
+        },
+        {
+          "type": "Arpeggiator",
+          "mode": 0,
+          "rate": 3,
+          "octaves": 1,
+          "active": true,
+          "name": "Arp 1 (1/8)"
+        },
+        {
+          "type": "Arpeggiator",
+          "mode": 1,
+          "rate": 4,
+          "octaves": 1,
+          "active": false,
+          "name": "Arp 2 (1/16 Down)"
+        }
+      ]
+    }
+  ],
+  "synth_combos": [
+    {
+      "id": "combo_warm_pad",
+      "name": "Warm Evolved Pad",
+      "description": "Soft WT + FM Pad + Chord for warm evolving texture",
+      "layers": [
+        { "type": "wavetable", "preset": "wt_soft_init", "volume": 0.8 },
+        { "type": "operator", "preset": "op_pad", "volume": 0.5 },
+        { "midi_effect": "Chord", "active": true }
+      ]
+    },
+    {
+      "id": "combo_bright_stab",
+      "name": "Bright Arpeggiator Stab",
+      "description": "Bright WT + Bell FM + Fast Arp for bright leads",
+      "layers": [
+        { "type": "wavetable", "preset": "wt_bright_square", "volume": 0.9 },
+        { "type": "operator", "preset": "op_bell", "volume": 0.4 },
+        { "midi_effect": "Arpeggiator", "active": true, "rate": 2 }
+      ]
+    },
+    {
+      "id": "combo_deep_bass",
+      "name": "Deep FM Bass",
+      "description": "Dark Saw WT + Metallic FM + Sub for massive bass",
+      "layers": [
+        { "type": "wavetable", "preset": "wt_dark_sawtooth", "volume": 0.95 },
+        { "type": "operator", "preset": "op_metallic", "volume": 0.3 },
+        { "midi_effect": "Scale", "active": true }
+      ]
+    },
+    {
+      "id": "combo_evolving_synth",
+      "name": "Evolving Synth Lead",
+      "description": "FM Modulated WT + Bright FM + Scale for dynamic leads",
+      "layers": [
+        { "type": "wavetable", "preset": "wt_modulated_fm", "volume": 0.85 },
+        { "type": "operator", "preset": "op_bright", "volume": 0.6 },
+        { "midi_effect": "Scale", "active": true },
+        { "midi_effect": "Arpeggiator", "active": true, "rate": 3 }
+      ]
+    }
+  ],
+  "macro_templates": [
+    {
+      "name": "Standard 8-Macro",
+      "description": "Filter + Saturation + Reverb/Delay + Volume/Pan + Wet",
+      "macros": [
+        { "id": 1, "name": "Filter Freq", "min": 100, "max": 20000 },
+        { "id": 2, "name": "Filter Res", "min": 0, "max": 1 },
+        { "id": 3, "name": "Saturation", "min": 0, "max": 40 },
+        { "id": 4, "name": "Reverb Send", "min": 0, "max": 1 },
+        { "id": 5, "name": "Delay Send", "min": 0, "max": 1 },
+        { "id": 6, "name": "Volume", "min": 0, "max": 2 },
+        { "id": 7, "name": "Panorama", "min": -1, "max": 1 },
+        { "id": 8, "name": "Effect Wet/Dry", "min": 0, "max": 1 }
+      ]
+    }
+  ]
+}

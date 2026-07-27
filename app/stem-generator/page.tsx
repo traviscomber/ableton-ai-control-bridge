@@ -181,7 +181,7 @@ function MidiCard({ midi }: { midi: MidiFile }) {
   );
 }
 
-// ─── Paired stem row: WAV + MIDI side by side ─────────────────────────────────
+// ─── Paired stem row: WAV + MIDI side by side ────�����────────────────────────────
 
 function StemPairRow({
   stem, midi, showMidi,
@@ -399,7 +399,7 @@ function GateCard({
 
 // ─── Master WAV card ──────────────────────────────────────────────────────────
 
-function MasterWavCard({ wav }: { wav: FullPipelineResponse["final_wav"] }) {
+function MasterWavCard({ wav }: { wav: NonNullable<FullPipelineResponse["final_wav"]> }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
 
@@ -1250,8 +1250,174 @@ export default function StemGeneratorPage() {
             )}
 
             {/* ── STAGE 5: Final WAV Master ─────────────────────────────────── */}
-            <SectionDivider title="Stage 5 — Final WAV Master" />
-            <MasterWavCard wav={result.final_wav} />
+            {result.final_wav?.wav_b64 && (
+              <>
+                <SectionDivider title="Stage 5 — Final WAV Master" />
+                <MasterWavCard wav={result.final_wav} />
+              </>
+            )}
+
+            {/* ── ADVANCED SYNTH ENGINES ────────────────────────────────────── */}
+            <SectionDivider title="Advanced Synth Engines & Presets" />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {/* Multi-Layer Wavetable */}
+              <div className="rounded-lg border p-4" style={{ borderColor: "#3cd4a8" + "40", backgroundColor: "#3cd4a8" + "07" }}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs font-mono font-semibold uppercase" style={{ color: "#3cd4a8" }}>Wavetable Synths</span>
+                </div>
+                <div className="space-y-2 text-xs font-mono">
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: "var(--text-faint)" }}>Layer 1: Soft Init Osc</span>
+                    <span style={{ color: "#3cd4a8" }}>Foundation</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: "var(--text-faint)" }}>Layer 2: Bright Square</span>
+                    <span style={{ color: "#3cd4a8" }}>+Octave</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: "var(--text-faint)" }}>Layer 3: Dark Sawtooth</span>
+                    <span style={{ color: "#3cd4a8" }}>Sub</span>
+                  </div>
+                  <div className="pt-2 border-t" style={{ borderColor: "#3cd4a8" + "20" }}>
+                    <p style={{ color: "var(--text-faint)" }}>Multi-layer morphing with FM modulation. Blend via 8 macros.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* FM Operator Presets */}
+              <div className="rounded-lg border p-4" style={{ borderColor: "#8c5de8" + "40", backgroundColor: "#8c5de8" + "07" }}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs font-mono font-semibold uppercase" style={{ color: "#8c5de8" }}>FM Operator Presets</span>
+                </div>
+                <div className="space-y-2 text-xs font-mono">
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: "var(--text-faint)" }}>Bell FM</span>
+                    <span style={{ color: "#8c5de8" }}>Glassy</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: "var(--text-faint)" }}>Pad FM</span>
+                    <span style={{ color: "#8c5de8" }}>Warm</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: "var(--text-faint)" }}>Bright FM</span>
+                    <span style={{ color: "#8c5de8" }}>Lead</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: "var(--text-faint)" }}>Metallic FM</span>
+                    <span style={{ color: "#8c5de8" }}>Clang</span>
+                  </div>
+                  <div className="pt-2 border-t" style={{ borderColor: "#8c5de8" + "20" }}>
+                    <p style={{ color: "var(--text-faint)" }}>4-algorithm FM synths with evolving harmonics.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Enhanced MIDI Effects */}
+              <div className="rounded-lg border p-4" style={{ borderColor: "#3c9de8" + "40", backgroundColor: "#3c9de8" + "07" }}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs font-mono font-semibold uppercase" style={{ color: "#3c9de8" }}>MIDI Effects Stack</span>
+                </div>
+                <div className="space-y-2 text-xs font-mono">
+                  <div style={{ color: "var(--text-faint)" }}>✓ Scale (always on — harmonic safety)</div>
+                  <div style={{ color: "var(--text-faint)" }}>+ Chord (auto-voicing, toggleable)</div>
+                  <div style={{ color: "var(--text-faint)" }}>+ Arpeggiator (multiple modes)</div>
+                  <div style={{ color: "var(--text-faint)" }}>+ Note Length (humanization)</div>
+                  <div className="pt-2 border-t" style={{ borderColor: "#3c9de8" + "20" }}>
+                    <p style={{ color: "var(--text-faint)" }}>Performance-ready MIDI chain for live control.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Granular Sampler */}
+              <div className="rounded-lg border p-4" style={{ borderColor: "#e8a23c" + "40", backgroundColor: "#e8a23c" + "07" }}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs font-mono font-semibold uppercase" style={{ color: "#e8a23c" }}>Sampler Warping</span>
+                </div>
+                <div className="space-y-2 text-xs font-mono">
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: "var(--text-faint)" }}>Grain-based Texture</span>
+                    <span style={{ color: "#e8a23c" }}>40 ms</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: "var(--text-faint)" }}>Warp Mode</span>
+                    <span style={{ color: "#e8a23c" }}>Time-stretch</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: "var(--text-faint)" }}>Transposition</span>
+                    <span style={{ color: "#e8a23c" }}>±48 st</span>
+                  </div>
+                  <div className="pt-2 border-t" style={{ borderColor: "#e8a23c" + "20" }}>
+                    <p style={{ color: "var(--text-faint)" }}>Creative sample morphing without plugins.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── PRO PACK FEATURES ─────────────────────────────────────────── */}
+            <SectionDivider title="Pro Pack Features" />
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              {/* Instrument Racks */}
+              <div className="rounded-lg border p-4" style={{ borderColor: "var(--brand)" + "30", backgroundColor: "var(--brand)" + "07" }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-mono font-semibold uppercase" style={{ color: "var(--brand)" }}>⚙ Instrument Racks</span>
+                </div>
+                <p className="text-xs font-mono leading-relaxed" style={{ color: "var(--text-dim)" }}>
+                  Each melodic track wrapped in Ableton Rack with 8 easy-macro controls: filter freq/res, saturation, reverb/delay send, volume/pan, effect mix
+                </p>
+              </div>
+
+              {/* MIDI Effects */}
+              <div className="rounded-lg border p-4" style={{ borderColor: "#3cd4a8" + "30", backgroundColor: "#3cd4a8" + "07" }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-mono font-semibold uppercase" style={{ color: "#3cd4a8" }}>🎼 MIDI Effects</span>
+                </div>
+                <p className="text-xs font-mono leading-relaxed" style={{ color: "var(--text-dim)" }}>
+                  Scale tool (locked to project key) on Bass/Pad/Stab. Arpeggiator (1/8 beat, up mode) on Arp track for live performance control
+                </p>
+              </div>
+
+              {/* Track Organization */}
+              <div className="rounded-lg border p-4" style={{ borderColor: "#e8a23c" + "30", backgroundColor: "#e8a23c" + "07" }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-mono font-semibold uppercase" style={{ color: "#e8a23c" }}>📑 Track Groups</span>
+                </div>
+                <p className="text-xs font-mono leading-relaxed" style={{ color: "var(--text-dim)" }}>
+                  Organized hierarchy: Drums group, Melodic Stems group, FX Returns group. Master track with pro-level EQ + Glue + Limiter
+                </p>
+              </div>
+
+              {/* Wavetable Synths */}
+              <div className="rounded-lg border p-4" style={{ borderColor: "#8c5de8" + "30", backgroundColor: "#8c5de8" + "07" }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-mono font-semibold uppercase" style={{ color: "#8c5de8" }}>▄▀ Wavetable Layers</span>
+                </div>
+                <p className="text-xs font-mono leading-relaxed" style={{ color: "var(--text-dim)" }}>
+                  Wavetable synth alt-layer per melodic stem running in parallel. Same Scale/Arpeggiator MIDI effects and send routing for blend/performance
+                </p>
+              </div>
+
+              {/* Return Tracks */}
+              <div className="rounded-lg border p-4" style={{ borderColor: "#3c9de8" + "30", backgroundColor: "#3c9de8" + "07" }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-mono font-semibold uppercase" style={{ color: "#3c9de8" }}>↩ Return Tracks</span>
+                </div>
+                <p className="text-xs font-mono leading-relaxed" style={{ color: "var(--text-dim)" }}>
+                  Return A (Reverb) with 2.4s decay, Size 0.75. Return B (Delay) with 1/8 & 3/8 dotted timing. Pre-baked send amounts per stem
+                </p>
+              </div>
+
+              {/* Drum Rack */}
+              <div className="rounded-lg border p-4" style={{ borderColor: "#e85d3c" + "30", backgroundColor: "#e85d3c" + "07" }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-mono font-semibold uppercase" style={{ color: "#e85d3c" }}>🥁 Drum Rack</span>
+                </div>
+                <p className="text-xs font-mono leading-relaxed" style={{ color: "var(--text-dim)" }}>
+                  Single DrumRack with 6 velocity-layered pads. Each pad: Simpler + per-pad EQ + Compressor. Drum bus post-chain with Glue + Limiter
+                </p>
+              </div>
+            </div>
 
             {/* ── ABLETON LIVE PACK EXPORT ──────────────────────────────────── */}
             <SectionDivider title="Export — Ableton Live Pack" />
@@ -1272,7 +1438,7 @@ export default function StemGeneratorPage() {
                     </span>
                   </div>
                   <p className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>
-                    Ableton Live 11/12 project · WAV stems · MIDI clips · Max for Live device
+                    Ableton Live 11/12 project · WAV stems · MIDI clips · Instrument Racks · Wavetables · MIDI FX
                   </p>
                 </div>
                 <button
@@ -1301,7 +1467,7 @@ export default function StemGeneratorPage() {
                     {result.samplepack.stems.map((s) => (
                       <PackFileRow key={s.stem_type} icon=".wav" label={`Samples/Originals/${s.stem_type}.wav`} desc={`${s.durationSec.toFixed(2)}s · 48kHz/24-bit`} color={STEM_COLORS[s.stem_type] ?? "#6b6b76"} />
                     ))}
-                    <PackFileRow icon=".wav" label="Samples/Originals/master_mix.wav" desc={`${result.final_wav.durationSec.toFixed(2)}s · stereo master`} color="var(--text-dim)" />
+                    {result.final_wav && <PackFileRow icon=".wav" label="Samples/Originals/master_mix.wav" desc={`${result.final_wav.durationSec.toFixed(2)}s · stereo master`} color="var(--text-dim)" />}
                     {/* MIDI */}
                     {result.midis.map((m) => (
                       <PackFileRow key={m.stem} icon=".mid" label={`MIDI Clips/${m.filename}`} desc={`${m.notes_count} notes · Ch ${m.channel}`} color={STEM_COLORS[m.stem] ?? "#6b6b76"} />
@@ -1315,26 +1481,57 @@ export default function StemGeneratorPage() {
                 {/* Right: technical specs */}
                 <div className="flex flex-col gap-4">
                   <div>
-                    <p className="text-xs font-mono uppercase tracking-wider mb-2" style={{ color: "var(--text-faint)" }}>Live Set tracks</p>
-                    <div className="flex flex-col gap-1.5">
-                      {result.samplepack.stems.filter((s) => ["kick","snare","hihat","noise"].includes(s.stem_type)).map((s) => (
-                        <div key={s.stem_type} className="flex items-center gap-2">
-                          <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: "var(--surface-raised)", color: "var(--text-faint)" }}>AudioTrack</span>
-                          <span className="text-xs font-mono" style={{ color: STEM_COLORS[s.stem_type] ?? "#6b6b76" }}>{s.stem_type}</span>
-                          <span className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>clip with WAV reference</span>
-                        </div>
-                      ))}
+                    <p className="text-xs font-mono uppercase tracking-wider mb-2" style={{ color: "var(--text-faint)" }}>Live Set tracks (pro layout)</p>
+                    <div className="flex flex-col gap-1">
+                      {/* Drum group */}
+                      <div className="flex items-center gap-2 pl-2 py-1 border-l-2" style={{ borderColor: "#e85d3c" }}>
+                        <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: "var(--surface-raised)", color: "#e85d3c" }}>Group</span>
+                        <span className="text-xs font-mono font-semibold" style={{ color: "#e85d3c" }}>Drums</span>
+                        <span className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>DrumRack + FX chain</span>
+                      </div>
+
+                      {/* Melodic group */}
+                      <div className="flex items-center gap-2 pl-2 py-1 border-l-2 mt-1" style={{ borderColor: "#3cd4a8" }}>
+                        <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: "var(--surface-raised)", color: "#3cd4a8" }}>Group</span>
+                        <span className="text-xs font-mono font-semibold" style={{ color: "#3cd4a8" }}>Melodic Stems</span>
+                        <span className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>organized container</span>
+                      </div>
+
+                      {/* Melodic tracks with Racks + Wavetables */}
                       {result.samplepack.stems.filter((s) => !["kick","snare","hihat","noise"].includes(s.stem_type)).map((s) => (
-                        <div key={s.stem_type} className="flex items-center gap-2">
-                          <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: "var(--surface-raised)", color: "var(--text-faint)" }}>MidiTrack</span>
-                          <span className="text-xs font-mono" style={{ color: STEM_COLORS[s.stem_type] ?? "#6b6b76" }}>{s.stem_type}</span>
-                          <span className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>Simpler loaded with WAV</span>
+                        <div key={s.stem_type}>
+                          <div className="flex items-center gap-2 pl-6 py-0.5">
+                            <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: "var(--surface-raised)", color: "var(--text-faint)" }}>Midi</span>
+                            <span className="text-xs font-mono font-semibold" style={{ color: STEM_COLORS[s.stem_type] ?? "#6b6b76" }}>{s.stem_type}</span>
+                            <span className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>Simpler + Rack + Scale</span>
+                          </div>
+                          <div className="flex items-center gap-2 pl-6 py-0.5">
+                            <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: "var(--surface-raised)", color: "var(--text-faint)" }}>Midi</span>
+                            <span className="text-xs font-mono font-semibold" style={{ color: STEM_COLORS[s.stem_type] ?? "#6b6b76" }}>{s.stem_type} (WT)</span>
+                            <span className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>Wavetable alt-layer</span>
+                          </div>
                         </div>
                       ))}
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: "var(--surface-raised)", color: "var(--text-faint)" }}>AudioTrack</span>
+
+                      {/* Returns group */}
+                      <div className="flex items-center gap-2 pl-2 py-1 border-l-2 mt-1" style={{ borderColor: "#3c9de8" }}>
+                        <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: "var(--surface-raised)", color: "#3c9de8" }}>Group</span>
+                        <span className="text-xs font-mono font-semibold" style={{ color: "#3c9de8" }}>FX Returns</span>
+                        <span className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>Reverb + Delay</span>
+                      </div>
+
+                      {/* Master mix */}
+                      <div className="flex items-center gap-2 pl-2 py-1 border-l-2 mt-1" style={{ borderColor: "var(--text-dim)" }}>
+                        <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: "var(--surface-raised)", color: "var(--text-faint)" }}>Audio</span>
                         <span className="text-xs font-mono" style={{ color: "var(--text-dim)" }}>Master Mix</span>
                         <span className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>reference only</span>
+                      </div>
+
+                      {/* Master track */}
+                      <div className="flex items-center gap-2 pl-2 py-1 border-l-2 mt-1" style={{ borderColor: "var(--brand)" }}>
+                        <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: "var(--surface-raised)", color: "var(--brand)" }}>Master</span>
+                        <span className="text-xs font-mono font-semibold" style={{ color: "var(--brand)" }}>Master</span>
+                        <span className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>EQ + Glue + Limiter</span>
                       </div>
                     </div>
                   </div>
@@ -1359,12 +1556,20 @@ export default function StemGeneratorPage() {
                   </div>
 
                   <div>
-                    <p className="text-xs font-mono uppercase tracking-wider mb-2" style={{ color: "var(--text-faint)" }}>Max for Live device</p>
-                    <div className="rounded-lg border p-3 text-xs font-mono" style={{ borderColor: "#e8a23c" + "30", backgroundColor: "#e8a23c" + "07" }}>
-                      <p className="font-semibold mb-1" style={{ color: "#e8a23c" }}>DARKSCO_Sampler.amxd</p>
-                      <p style={{ color: "var(--text-faint)" }}>MIDI router + stem-to-channel map.</p>
-                      <p style={{ color: "var(--text-faint)" }}>Shows kit name, BPM, key, and all stem note ranges.</p>
-                      <p className="mt-1" style={{ color: "var(--text-faint)" }}>Drag onto any MIDI track in Ableton Live with M4L.</p>
+                    <p className="text-xs font-mono uppercase tracking-wider mb-2" style={{ color: "var(--text-faint)" }}>Production ready</p>
+                    <div className="rounded-lg border p-3 text-xs font-mono space-y-2" style={{ borderColor: "var(--brand)" + "30", backgroundColor: "var(--brand)" + "07" }}>
+                      <div>
+                        <p className="font-semibold mb-0.5" style={{ color: "var(--brand)" }}>✓ All native Ableton devices</p>
+                        <p style={{ color: "var(--text-faint)" }}>Zero third-party plugins required. All FX chains (EQ, Compressor, Glue, Limiter, Reverb, Delay) are built-in.</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold mb-0.5" style={{ color: "var(--brand)" }}>✓ Live performance ready</p>
+                        <p style={{ color: "var(--text-faint)" }}>8 easy-macro controls per track. Scale tool constrains melodic input. Arpeggiator for rhythmic play. Wavetable alt-layers for depth.</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold mb-0.5" style={{ color: "var(--brand)" }}>✓ Professional routing</p>
+                        <p style={{ color: "var(--text-faint)" }}>Organized track groups. Pre-baked reverb + delay sends. Master chain with -0.3dBTP limiter for club safety.</p>
+                      </div>
                     </div>
                   </div>
                 </div>
