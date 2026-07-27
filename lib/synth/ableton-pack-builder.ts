@@ -417,7 +417,7 @@ function buildMidiTrack(stem: SamplepPackStem, endBeat: number, rootPitch: numbe
 const SCENE_COLORS: Record<string, number> = {
   intro:     57,  // steel blue
   build:     49,  // teal
-  drop:      18,  // deep orange — peak energy
+  drop:      18,  // deep orange ��� peak energy
   verse:     40,  // light blue
   chorus:    15,  // warm red
   breakdown: 26,  // purple
@@ -609,6 +609,1112 @@ function noteName(n: number): string {
   return NOTE_NAMES[n % 12] + (Math.floor(n / 12) - 1);
 }
 
+// ─── Native Ableton device builders ──────────────────────────────────────────
+//
+// All devices use Ableton's internal XML schema (Live 11/12).
+// Parameter values are stored as floats matching Ableton's internal units.
+// No third-party plugins — every device ships with Ableton Live Suite/Standard.
+
+// ─── Shared: On/Off node ─────────────────────────────────────────────────────
+
+function buildDeviceOn(on = true): string {
+  return `<On>
+              <LomId Value="0" />
+              <Manual Value="${on}" />
+              <AutomationTarget Id="${nextId()}" />
+              <ModulationTarget Id="${nextId()}" />
+            </On>`;
+}
+
+function buildAutoParam(manual: number | string, min = 0, max = 1): string {
+  return `<LomId Value="0" />
+              <Manual Value="${manual}" />
+              <MidiControllerRange>
+                <Min Value="${min}" />
+                <Max Value="${max}" />
+              </MidiControllerRange>
+              <AutomationTarget Id="${nextId()}" />
+              <ModulationTarget Id="${nextId()}" />`;
+}
+
+// ─── EQ Eight ────────────────────────────────────────────────────────────────
+// Ableton's 8-band parametric EQ.  Band Mode: 0=LP48, 1=LP12, 2=HP48, 3=HP12,
+// 4=LowShelf, 5=Bell, 6=Notch, 7=HighShelf, 8=BP
+
+interface EqBand {
+  freq:  number;   // Hz
+  gain:  number;   // dB
+  q:     number;   // Q factor (0.1–10)
+  mode:  number;   // see above
+  on:    boolean;
+}
+
+function buildEqEight(bands: EqBand[]): string {
+  const id = nextId();
+  // Ableton stores 8 fixed bands regardless; unused ones have On=false
+  const allBands = Array.from({ length: 8 }, (_, i) => bands[i] ?? {
+    freq: 1000, gain: 0, q: 0.71, mode: 5, on: false,
+  });
+
+  const bandXml = allBands.map((b, i) => `
+            <Band${i} Id="${i}">
+              <LomId Value="0" />
+              <Freq>
+                ${buildAutoParam(b.freq.toFixed(2), 10, 22000)}
+              </Freq>
+              <Gain>
+                ${buildAutoParam(b.gain.toFixed(2), -15, 15)}
+              </Gain>
+              <Q>
+                ${buildAutoParam(b.q.toFixed(3), 0.1, 10)}
+              </Q>
+              <Mode>
+                <LomId Value="0" />
+                <Manual Value="${b.mode}" />
+                <AutomationTarget Id="${nextId()}" />
+              </Mode>
+              <IsOn>
+                <LomId Value="0" />
+                <Manual Value="${b.on}" />
+                <AutomationTarget Id="${nextId()}" />
+              </IsOn>
+            </Band${i}>`).join("");
+
+  return `
+          <Eq8 Id="${id}">
+            <LomId Value="0" />
+            <LomIdView Value="0" />
+            <IsExpanded Value="true" />
+            ${buildDeviceOn()}
+            <ParametersListWrapper LomId="0" />
+            <Precision Value="1" />
+            ${bandXml}
+            <Bands8 Value="false" />
+          </Eq8>`;
+}
+
+// ─── Glue Compressor ──────────────────────────────────────────────────────────
+// Ableton's "Glue Compressor" (SSL-style bus compressor).
+
+interface GlueConfig {
+  threshold: number;   // dB  (default -12)
+  ratio:     number;   // 2 | 4 | 10 | 20 | 100 represented as index 0-4
+  attack:    number;   // index: 0=0.1ms, 1=0.3ms, 2=1ms, 3=3ms, 4=10ms, 5=30ms
+  release:   number;   // 0=auto, 0.1=100ms, 0.2=200ms, 0.4=400ms, 0.8=800ms, 1.6s
+  makeup:    number;   // dB
+  dryWet:    number;   // 0–1
+}
+
+const GLUE_RATIO_VALUES = [2, 4, 10, 20, 100];
+const GLUE_ATTACK_VALUES = [0.1, 0.3, 1, 3, 10, 30];
+
+function buildGlueCompressor(cfg: Partial<GlueConfig> = {}): string {
+  const c: GlueConfig = {
+    threshold: cfg.threshold ?? -12,
+    ratio:     cfg.ratio     ?? 1,    // index into GLUE_RATIO_VALUES (default 4:1)
+    attack:    cfg.attack    ?? 2,    // index into GLUE_ATTACK_VALUES (default 1ms)
+    release:   cfg.release   ?? 0,    // 0 = auto
+    makeup:    cfg.makeup    ?? 0,
+    dryWet:    cfg.dryWet    ?? 1,
+  };
+  const id = nextId();
+
+  return `
+          <GlueCompressor Id="${id}">
+            <LomId Value="0" />
+            <LomIdView Value="0" />
+            <IsExpanded Value="true" />
+            ${buildDeviceOn()}
+            <ParametersListWrapper LomId="0" />
+            <Threshold>
+              ${buildAutoParam(c.threshold, -60, 0)}
+            </Threshold>
+            <Ratio>
+              <LomId Value="0" />
+              <Manual Value="${c.ratio}" />
+              <AutomationTarget Id="${nextId()}" />
+              <ModulationTarget Id="${nextId()}" />
+            </Ratio>
+            <Attack>
+              <LomId Value="0" />
+              <Manual Value="${c.attack}" />
+              <AutomationTarget Id="${nextId()}" />
+              <ModulationTarget Id="${nextId()}" />
+            </Attack>
+            <Release>
+              ${buildAutoParam(c.release, 0, 1.6)}
+            </Release>
+            <MakeupGain>
+              ${buildAutoParam(c.makeup, -10, 10)}
+            </MakeupGain>
+            <DryWet>
+              ${buildAutoParam(c.dryWet, 0, 1)}
+            </DryWet>
+            <PeakClipIn Value="false" />
+          </GlueCompressor>`;
+}
+
+// ─── Compressor 2 ────────────────────────────────────────────────────────────
+// Ableton's multi-mode Compressor.
+
+interface CompressorConfig {
+  threshold: number;   // dB
+  ratio:     number;   // 1–∞ (linear)
+  attack:    number;   // ms (0.01–500)
+  release:   number;   // ms (1–10000) or "auto" stored as 0
+  knee:      number;   // dB soft-knee width (0=hard)
+  makeup:    number;   // dB
+  dryWet:    number;   // 0–1
+  model:     number;   // 0=Peak, 1=RMS
+}
+
+function buildCompressor(cfg: Partial<CompressorConfig> = {}): string {
+  const c: CompressorConfig = {
+    threshold: cfg.threshold ?? -18,
+    ratio:     cfg.ratio     ?? 3,
+    attack:    cfg.attack    ?? 10,
+    release:   cfg.release   ?? 100,
+    knee:      cfg.knee      ?? 6,
+    makeup:    cfg.makeup    ?? 0,
+    dryWet:    cfg.dryWet    ?? 1,
+    model:     cfg.model     ?? 0,
+  };
+  const id = nextId();
+
+  return `
+          <Compressor2 Id="${id}">
+            <LomId Value="0" />
+            <LomIdView Value="0" />
+            <IsExpanded Value="true" />
+            ${buildDeviceOn()}
+            <ParametersListWrapper LomId="0" />
+            <Threshold>
+              ${buildAutoParam(c.threshold, -36, 0)}
+            </Threshold>
+            <Ratio>
+              ${buildAutoParam(c.ratio, 1, 10)}
+            </Ratio>
+            <Knee>
+              ${buildAutoParam(c.knee, 0, 24)}
+            </Knee>
+            <Attack>
+              ${buildAutoParam(c.attack, 0, 500)}
+            </Attack>
+            <Release>
+              ${buildAutoParam(c.release, 1, 10000)}
+            </Release>
+            <AutoReleaseControlIsOn>
+              <LomId Value="0" />
+              <Manual Value="false" />
+              <AutomationTarget Id="${nextId()}" />
+            </AutoReleaseControlIsOn>
+            <MakeupGain>
+              ${buildAutoParam(c.makeup, -10, 10)}
+            </MakeupGain>
+            <DryWetKnob>
+              ${buildAutoParam(c.dryWet, 0, 1)}
+            </DryWetKnob>
+            <Model Value="${c.model}" />
+          </Compressor2>`;
+}
+
+// ─── Limiter ─────────────────────────────────────────────────────────────────
+// Ableton's true-peak Limiter (brick-wall).
+
+function buildLimiter(ceiling = -0.3, lookahead = 1.0): string {
+  const id = nextId();
+  return `
+          <Limiter Id="${id}">
+            <LomId Value="0" />
+            <LomIdView Value="0" />
+            <IsExpanded Value="true" />
+            ${buildDeviceOn()}
+            <ParametersListWrapper LomId="0" />
+            <Ceiling>
+              ${buildAutoParam(ceiling, -36, 0)}
+            </Ceiling>
+            <GainInputLevel>
+              ${buildAutoParam(0, -36, 36)}
+            </GainInputLevel>
+            <Lookahead Value="${lookahead}" />
+            <Mode Value="1" />
+            <LinkChannels Value="true" />
+          </Limiter>`;
+}
+
+// ─── Saturator ───────────────────────────────────────────────────────────────
+// Ableton's Saturator. WaveformType: 0=SoftSine, 1=Analog, 2=HardClip, 3=Sine, 4=Fold
+
+function buildSaturator(drive = 0.0, waveformType = 1, wetDry = 1.0): string {
+  const id = nextId();
+  return `
+          <Saturator Id="${id}">
+            <LomId Value="0" />
+            <LomIdView Value="0" />
+            <IsExpanded Value="true" />
+            ${buildDeviceOn()}
+            <ParametersListWrapper LomId="0" />
+            <Drive>
+              ${buildAutoParam(drive, 0, 40)}
+            </Drive>
+            <Type Value="${waveformType}" />
+            <WetDryMix>
+              ${buildAutoParam(wetDry, 0, 1)}
+            </WetDryMix>
+            <DcOffsetOut Value="0" />
+            <Effect>
+              <Bass>
+                <LomId Value="0" />
+                <Manual Value="0" />
+                <AutomationTarget Id="${nextId()}" />
+              </Bass>
+              <BassModeFreq>
+                <LomId Value="0" />
+                <Manual Value="90" />
+                <AutomationTarget Id="${nextId()}" />
+              </BassModeFreq>
+              <Color>
+                <LomId Value="0" />
+                <Manual Value="0" />
+                <AutomationTarget Id="${nextId()}" />
+              </Color>
+              <Freq>
+                <LomId Value="0" />
+                <Manual Value="0" />
+                <AutomationTarget Id="${nextId()}" />
+              </Freq>
+            </Effect>
+            <ColorAmount>
+              ${buildAutoParam(0, 0, 100)}
+            </ColorAmount>
+          </Saturator>`;
+}
+
+// ─── Reverb ───────────────────────────────────────────────────────────────────
+// Ableton's Reverb.
+
+interface ReverbConfig {
+  roomSize:    number;  // 0–1 (maps to Ableton's Room Size knob)
+  decaySec:    number;  // 0.1–60s
+  diffusion:   number;  // 0–1
+  preDelaySec: number;  // 0–0.5s
+  wetLevel:    number;  // 0–1
+  dryLevel:    number;  // 0–1
+  hpFreq:      number;  // Hz  (preverb EQ high-pass)
+  lpFreq:      number;  // Hz  (preverb EQ low-pass)
+}
+
+function buildReverb(cfg: Partial<ReverbConfig> = {}): string {
+  const c: ReverbConfig = {
+    roomSize:    cfg.roomSize    ?? 0.75,
+    decaySec:    cfg.decaySec    ?? 2.4,
+    diffusion:   cfg.diffusion   ?? 0.9,
+    preDelaySec: cfg.preDelaySec ?? 0.015,
+    wetLevel:    cfg.wetLevel    ?? 1.0,
+    dryLevel:    cfg.dryLevel    ?? 0.0,
+    hpFreq:      cfg.hpFreq      ?? 120,
+    lpFreq:      cfg.lpFreq      ?? 8000,
+  };
+  const id = nextId();
+
+  return `
+          <Reverb Id="${id}">
+            <LomId Value="0" />
+            <LomIdView Value="0" />
+            <IsExpanded Value="true" />
+            ${buildDeviceOn()}
+            <ParametersListWrapper LomId="0" />
+            <RoomSize>
+              ${buildAutoParam(c.roomSize, 0, 1)}
+            </RoomSize>
+            <DecayTime>
+              ${buildAutoParam(c.decaySec, 0.1, 60)}
+            </DecayTime>
+            <PreDelayTime>
+              ${buildAutoParam(c.preDelaySec, 0, 0.5)}
+            </PreDelayTime>
+            <Diffusion>
+              ${buildAutoParam(c.diffusion, 0, 1)}
+            </Diffusion>
+            <WetLevel>
+              ${buildAutoParam(c.wetLevel, 0, 1)}
+            </WetLevel>
+            <DryLevel>
+              ${buildAutoParam(c.dryLevel, 0, 1)}
+            </DryLevel>
+            <PreverbFilter>
+              <HPFreq>
+                ${buildAutoParam(c.hpFreq, 10, 22000)}
+              </HPFreq>
+              <LPFreq>
+                ${buildAutoParam(c.lpFreq, 10, 22000)}
+              </LPFreq>
+            </PreverbFilter>
+            <Freeze Value="0" />
+          </Reverb>`;
+}
+
+// ─── Delay ───────────────────────────────────────────────────────────────────
+// Ableton's native Delay (not Echo). Beat-synced delays L/R independently.
+// beatLeft/beatRight are Ableton beat division indices:
+//   0=1/32, 1=1/16, 2=3/32, 3=1/8, 4=3/16, 5=1/4, 6=3/8, 7=1/2, 8=3/4, 9=1
+// filterOn=true activates 2-pole bandpass on the delay output.
+
+interface DelayConfig {
+  beatLeft:   number;  // beat division index
+  beatRight:  number;  // beat division index
+  feedback:   number;  // 0–1
+  filterOn:   boolean;
+  hpFreq:     number;  // Hz
+  lpFreq:     number;  // Hz
+  wet:        number;  // 0–1
+}
+
+function buildDelay(cfg: Partial<DelayConfig> = {}): string {
+  const c: DelayConfig = {
+    beatLeft:  cfg.beatLeft  ?? 3,   // 1/8
+    beatRight: cfg.beatRight ?? 5,   // 1/4
+    feedback:  cfg.feedback  ?? 0.30,
+    filterOn:  cfg.filterOn  ?? true,
+    hpFreq:    cfg.hpFreq    ?? 200,
+    lpFreq:    cfg.lpFreq    ?? 8000,
+    wet:       cfg.wet       ?? 0.8,
+  };
+  const id = nextId();
+
+  return `
+          <Delay Id="${id}">
+            <LomId Value="0" />
+            <LomIdView Value="0" />
+            <IsExpanded Value="true" />
+            ${buildDeviceOn()}
+            <ParametersListWrapper LomId="0" />
+            <DelayLeft>
+              <SyncedRate>
+                <LomId Value="0" />
+                <Manual Value="${c.beatLeft}" />
+                <AutomationTarget Id="${nextId()}" />
+              </SyncedRate>
+              <SyncMode Value="1" />
+            </DelayLeft>
+            <DelayRight>
+              <SyncedRate>
+                <LomId Value="0" />
+                <Manual Value="${c.beatRight}" />
+                <AutomationTarget Id="${nextId()}" />
+              </SyncedRate>
+              <SyncMode Value="1" />
+            </DelayRight>
+            <FeedbackL>
+              ${buildAutoParam(c.feedback, 0, 1)}
+            </FeedbackL>
+            <FeedbackR>
+              ${buildAutoParam(c.feedback, 0, 1)}
+            </FeedbackR>
+            <LinkFeedback Value="true" />
+            <WetAmount>
+              ${buildAutoParam(c.wet, 0, 1)}
+            </WetAmount>
+            <DryAmount>
+              ${buildAutoParam(1 - c.wet, 0, 1)}
+            </DryAmount>
+            <StereoLink Value="false" />
+            <Filter Value="${c.filterOn ? 1 : 0}">
+              <Highpass>
+                ${buildAutoParam(c.hpFreq, 10, 22000)}
+              </Highpass>
+              <Lowpass>
+                ${buildAutoParam(c.lpFreq, 10, 22000)}
+              </Lowpass>
+            </Filter>
+          </Delay>`;
+}
+
+// ─── Chorus-Ensemble ─────────────────────────────────────────────────────────
+// Ableton's Chorus-Ensemble (Live 11+). Used for pad stereo widening.
+// Mode: 0=Chorus I, 1=Chorus II, 2=Flanger, 3=Ensemble
+
+function buildChorusEnsemble(amount = 0.4, mode = 3, dryWet = 0.5): string {
+  const id = nextId();
+  return `
+          <ChorusEnsemble Id="${id}">
+            <LomId Value="0" />
+            <LomIdView Value="0" />
+            <IsExpanded Value="true" />
+            ${buildDeviceOn()}
+            <ParametersListWrapper LomId="0" />
+            <Amount>
+              ${buildAutoParam(amount, 0, 1)}
+            </Amount>
+            <Mode Value="${mode}" />
+            <DryWetMix>
+              ${buildAutoParam(dryWet, 0, 1)}
+            </DryWetMix>
+          </ChorusEnsemble>`;
+}
+
+// ─── Utility ─────────────────────────────────────────────────────────────────
+// Ableton's Utility. Used for gain staging and bass mono below a cutoff.
+
+function buildUtility(gainDb = 0.0, stereoWidth = 1.0, monoBelow = 0): string {
+  const id = nextId();
+  return `
+          <StereoGain Id="${id}">
+            <LomId Value="0" />
+            <LomIdView Value="0" />
+            <IsExpanded Value="true" />
+            ${buildDeviceOn()}
+            <ParametersListWrapper LomId="0" />
+            <Gain>
+              ${buildAutoParam(gainDb, -35, 35)}
+            </Gain>
+            <StereoWidth>
+              ${buildAutoParam(stereoWidth, 0, 1)}
+            </StereoWidth>
+            <SumToMono Value="false" />
+            <MonoBelow>
+              ${buildAutoParam(monoBelow, 0, 22000)}
+            </MonoBelow>
+            <MidSideMode Value="false" />
+            <DC Value="false" />
+          </StereoGain>`;
+}
+
+// ─── Drum Rack ────────────────────────────────────────────────────────────────
+// One DrumBranch per pad. Each branch has:
+//   - Simpler in one-shot mode with velocity-layered MultiSampleParts
+//   - Per-pad EQ Eight + Compressor device chain
+
+interface DrumPadConfig {
+  name:       string;  // "Kick", "Snare", etc.
+  midiNote:   number;  // 36=C1, 38=D1, 40=E1, 42=F#1, 44=G#1, 46=A#1
+  stemType:   string;  // matches folder in Samples/Drums/
+  color:      number;  // Ableton colour ID
+  eqBands:    EqBand[];
+  compConfig: Partial<CompressorConfig>;
+  // Velocity layers for multi-zone Simpler
+  velocityLayers: Array<{
+    file:    string;   // relative path inside ZIP root
+    velMin:  number;
+    velMax:  number;
+    velRoot: number;
+  }>;
+}
+
+function buildDrumSimpler(pad: DrumPadConfig): string {
+  const simplerId = nextId();
+
+  const buildVelPart = (layer: DrumPadConfig["velocityLayers"][number], idx: number) => `
+                    <MultiSamplePart Id="${idx}" HasImportedSlicePoints="false" NeedsAnalysisData="false">
+                      <LomId Value="0" />
+                      <Name Value="${xmlAttr(layer.file.split("/").pop() ?? "")}" />
+                      <Selection Value="${idx === 1 ? "true" : "false"}" />
+                      <IsActive Value="true" />
+                      <Solo Value="false" />
+                      <KeyRange>
+                        <Min Value="${pad.midiNote}" />
+                        <Max Value="${pad.midiNote}" />
+                        <CrossfadeMin Value="${pad.midiNote}" />
+                        <CrossfadeMax Value="${pad.midiNote}" />
+                      </KeyRange>
+                      <VelocityRange>
+                        <Min Value="${layer.velMin}" />
+                        <Max Value="${layer.velMax}" />
+                        <CrossfadeMin Value="${layer.velMin}" />
+                        <CrossfadeMax Value="${layer.velMax}" />
+                      </VelocityRange>
+                      <SelectorRange>
+                        <Min Value="0" />
+                        <Max Value="127" />
+                        <CrossfadeMin Value="0" />
+                        <CrossfadeMax Value="127" />
+                      </SelectorRange>
+                      <RootKey Value="${pad.midiNote}" />
+                      <Detune Value="0" />
+                      <TuneScale Value="100" />
+                      <Panorama Value="0" />
+                      <Volume Value="1" />
+                      <Lfo />
+                      <Filter />
+                      <SampleRef>${buildFileRef(layer.file)}
+                      </SampleRef>
+                      <SlicePoints />
+                      <ManageWarps Value="false" />
+                      <WarpOn Value="false" />
+                      <AutoWarpTolerance Value="4" />
+                      <WarpMarkers />
+                      <WarpMode Value="0" />
+                    </MultiSamplePart>`;
+
+  return `
+                <Simpler Id="${simplerId}">
+                  <LomId Value="0" />
+                  <LomIdView Value="0" />
+                  <IsExpanded Value="true" />
+                  ${buildDeviceOn()}
+                  <ParametersListWrapper LomId="0" />
+                  <Player>
+                    <MultiSampleMap>
+                      <SampleParts>
+                        ${pad.velocityLayers.map(buildVelPart).join("")}
+                      </SampleParts>
+                    </MultiSampleMap>
+                    <LoopOn Value="false" />
+                    <SampleStart Value="0" />
+                    <SampleEnd Value="1" />
+                    <SustainMode Value="0" />
+                    <InterpolationQuality Value="2" />
+                  </Player>
+                </Simpler>`;
+}
+
+function buildDrumBranch(pad: DrumPadConfig, branchIdx: number): string {
+  const branchId  = nextId();
+  const simplerId = nextId();
+  const eqXml     = buildEqEight(pad.eqBands);
+  const compXml   = buildCompressor(pad.compConfig);
+
+  return `
+              <DrumBranch Id="${branchIdx}">
+                <LomId Value="0" />
+                <Name Value="${xmlAttr(pad.name)}" />
+                <IsActive Value="true" />
+                <Solo Value="false" />
+                <Mute Value="false" />
+                <ReceivingNote Value="${pad.midiNote}" />
+                <SendingNote Value="${pad.midiNote}" />
+                <ChokeGroup Value="0" />
+                <NoteOffset Value="0" />
+                <VelocityStart Value="1" />
+                <VelocityEnd Value="127" />
+                <ZoneSettings>
+                  <ReceivingNoteRangeMin Value="${pad.midiNote}" />
+                  <ReceivingNoteRangeMax Value="${pad.midiNote}" />
+                  <Input Value="${pad.midiNote}" />
+                  <Output Value="${pad.midiNote}" />
+                </ZoneSettings>
+                <DeviceChain>
+                  <Devices>
+                    ${buildDrumSimpler(pad)}
+                    ${eqXml}
+                    ${compXml}
+                  </Devices>
+                  <MixerDevice Id="${nextId()}">
+                    <LomId Value="0" />
+                    <LomIdView Value="0" />
+                    <IsExpanded Value="true" />
+                    ${buildDeviceOn()}
+                    <ParametersListWrapper LomId="0" />
+                    <Volume>
+                      ${buildAutoParam(0.85, 0, 2)}
+                    </Volume>
+                    <Panorama>
+                      ${buildAutoParam(0, -1, 1)}
+                    </Panorama>
+                  </MixerDevice>
+                </DeviceChain>
+              </DrumBranch>`;
+}
+
+function buildDrumRack(pads: DrumPadConfig[]): string {
+  const rackId = nextId();
+  const branches = pads.map((p, i) => buildDrumBranch(p, i)).join("");
+
+  return `
+          <DrumGroupDevice Id="${rackId}">
+            <LomId Value="0" />
+            <LomIdView Value="0" />
+            <IsExpanded Value="true" />
+            ${buildDeviceOn()}
+            <ParametersListWrapper LomId="0" />
+            <DrumBranches>
+              ${branches}
+            </DrumBranches>
+            <ReturnCount Value="0" />
+            <ShowRPads Value="false" />
+            <ShowCPads Value="false" />
+            <MidiNotesHaveChannels Value="false" />
+            <PlaybackMode Value="0" />
+            <ViewData Value="{&quot;ActiveChain&quot;:0}" />
+          </DrumGroupDevice>`;
+}
+
+// ─── MixerDevice with Sends ───────────────────────────────────────────────────
+// Ableton tracks have a MixerDevice that handles volume, pan, and send amounts.
+// sendAmounts is an array of [returnTrackId, amount 0-1] pairs.
+
+interface MixerCfg {
+  volume:       number;   // 0–2 (1.0 = 0dB)
+  pan:          number;   // -1 to 1
+  sendAmounts:  number[]; // one per return track, 0–1
+}
+
+function buildMixerDevice(cfg: Partial<MixerCfg> = {}): string {
+  const volume      = cfg.volume ?? 1.0;
+  const pan         = cfg.pan    ?? 0;
+  const sendAmounts = cfg.sendAmounts ?? [];
+  const id = nextId();
+
+  const sendsXml = sendAmounts.map((amt, i) => `
+              <TrackSendHolder Id="${i}">
+                <Send>
+                  <LomId Value="0" />
+                  <Manual Value="${amt.toFixed(4)}" />
+                  <MidiControllerRange>
+                    <Min Value="0" />
+                    <Max Value="1" />
+                  </MidiControllerRange>
+                  <AutomationTarget Id="${nextId()}" />
+                  <ModulationTarget Id="${nextId()}" />
+                </Send>
+                <Active Value="true" />
+              </TrackSendHolder>`).join("");
+
+  return `
+        <MixerDevice Id="${id}">
+          <LomId Value="0" />
+          <LomIdView Value="0" />
+          <IsExpanded Value="true" />
+          ${buildDeviceOn()}
+          <ParametersListWrapper LomId="0" />
+          <Volume>
+            ${buildAutoParam(volume, 0, 2)}
+          </Volume>
+          <Panorama>
+            ${buildAutoParam(pan, -1, 1)}
+          </Panorama>
+          <SpeakerOn>
+            <LomId Value="0" />
+            <Manual Value="true" />
+            <AutomationTarget Id="${nextId()}" />
+          </SpeakerOn>
+          <Sends>
+            ${sendsXml}
+          </Sends>
+        </MixerDevice>`;
+}
+
+// ─── Audio Track (with FX chain and sends) ────────────────────────────────────
+
+function buildAudioTrackFull(
+  stem:        SamplepPackStem,
+  endBeat:     number,
+  isMix:       boolean,
+  devicesXml:  string,
+  mixerCfg:    Partial<MixerCfg> = {},
+): string {
+  const trackId = nextId();
+  const clipId  = nextId();
+  const color   = TRACK_COLORS[stem.stem_type] ?? TRACK_COLORS.mix;
+  const label   = isMix
+    ? "Master Mix"
+    : stem.stem_type.charAt(0).toUpperCase() + stem.stem_type.slice(1);
+
+  return `
+    <AudioTrack Id="${trackId}">
+      <LomId Value="0" />
+      <LomIdView Value="0" />
+      <IsContentSelectedInDocument Value="false" />
+      <PreferredContentViewMode Value="0" />
+      <TrackDelay><Value Value="0" /><IsValueSampleBased Value="false" /></TrackDelay>
+      <Name>
+        <EffectiveName Value="${xmlAttr(label)}" />
+        <UserName Value="" /><Annotation Value="" /><MemorizedFirstClipName Value="" />
+      </Name>
+      <Color Value="${color}" />
+      <AutomationEnvelopes><Envelopes /></AutomationEnvelopes>
+      <TrackGroupId Value="-1" />
+      <TrackUnfolded Value="false" />
+      <DevicesListWrapper LomId="0" />
+      <ClipSlotsListWrapper LomId="0" />
+      <ViewData Value="{}" />
+      <TakeLanes>
+        <TakeLane Id="0">
+          <LomId Value="0" />
+          <Name Value="${xmlAttr(label)}" />
+          <Annotation Value="" />
+          <IsContentSelectedInDocument Value="false" />
+          <ClipSlotList>
+            <ClipSlot Id="0">
+              <Value>${buildAudioClip(clipId, stem, endBeat)}</Value>
+              <HasStopButton Value="true" />
+              <NeedRefreeze Value="false" />
+            </ClipSlot>
+          </ClipSlotList>
+        </TakeLane>
+      </TakeLanes>
+      <DeviceChain>
+        <AutomationLanes><AutomationLanes /></AutomationLanes>
+        <ClipEnvelopeChooserViewState>
+          <SelectedDevice Value="0" /><SelectedEnvelope Value="0" /><PreferModulationVisible Value="false" />
+        </ClipEnvelopeChooserViewState>
+        <AudioInputRouting>
+          <Target Value="AudioIn/None" /><UpperDisplayString Value="No Input" /><LowerDisplayString Value="" />
+        </AudioInputRouting>
+        <AudioOutputRouting>
+          <Target Value="AudioOut/Master" /><UpperDisplayString Value="Master" /><LowerDisplayString Value="" />
+        </AudioOutputRouting>
+        <Devices>${devicesXml}</Devices>
+        ${buildMixerDevice(mixerCfg)}
+      </DeviceChain>
+    </AudioTrack>`;
+}
+
+// ─── Midi Track (with FX chain and sends) ─────────────────────────────────────
+
+function buildMidiTrackFull(
+  stem:       SamplepPackStem,
+  endBeat:    number,
+  rootPitch:  number,
+  zones:      SimplerZone[] | undefined,
+  devicesXml: string,       // appended AFTER the Simpler
+  mixerCfg:   Partial<MixerCfg> = {},
+): string {
+  const trackId = nextId();
+  const clipId  = nextId();
+  const color   = TRACK_COLORS[stem.stem_type] ?? 40;
+  const label   = stem.stem_type.charAt(0).toUpperCase() + stem.stem_type.slice(1);
+
+  const simplerFallbackPath = `Samples/Originals/${stem.stem_type}.wav`;
+  const simplerXml = zones && zones.length > 0
+    ? buildSimpler(zones[0].samplePath, rootPitch, zones)
+    : buildSimpler(simplerFallbackPath, rootPitch);
+
+  return `
+    <MidiTrack Id="${trackId}">
+      <LomId Value="0" />
+      <LomIdView Value="0" />
+      <IsContentSelectedInDocument Value="false" />
+      <PreferredContentViewMode Value="0" />
+      <TrackDelay><Value Value="0" /><IsValueSampleBased Value="false" /></TrackDelay>
+      <Name>
+        <EffectiveName Value="${xmlAttr(label)}" />
+        <UserName Value="" /><Annotation Value="" /><MemorizedFirstClipName Value="" />
+      </Name>
+      <Color Value="${color}" />
+      <AutomationEnvelopes><Envelopes /></AutomationEnvelopes>
+      <TrackGroupId Value="-1" />
+      <TrackUnfolded Value="false" />
+      <DevicesListWrapper LomId="0" />
+      <ClipSlotsListWrapper LomId="0" />
+      <ViewData Value="{}" />
+      <TakeLanes>
+        <TakeLane Id="0">
+          <LomId Value="0" />
+          <Name Value="${xmlAttr(label)}" />
+          <Annotation Value="" />
+          <IsContentSelectedInDocument Value="false" />
+          <ClipSlotList>
+            <ClipSlot Id="0">
+              <Value>${buildMidiClip(clipId, label, endBeat, rootPitch)}</Value>
+              <HasStopButton Value="true" />
+              <NeedRefreeze Value="false" />
+            </ClipSlot>
+          </ClipSlotList>
+        </TakeLane>
+      </TakeLanes>
+      <DeviceChain>
+        <AutomationLanes><AutomationLanes /></AutomationLanes>
+        <ClipEnvelopeChooserViewState>
+          <SelectedDevice Value="0" /><SelectedEnvelope Value="0" /><PreferModulationVisible Value="false" />
+        </ClipEnvelopeChooserViewState>
+        <MidiInputRouting>
+          <Target Value="MidiIn/External.All/-1" />
+          <UpperDisplayString Value="Ext: All Ins" /><LowerDisplayString Value="" />
+        </MidiInputRouting>
+        <MidiOutputRouting>
+          <Target Value="MidiOut/None" /><UpperDisplayString Value="No Output" /><LowerDisplayString Value="" />
+        </MidiOutputRouting>
+        <Devices>
+          ${simplerXml}
+          ${devicesXml}
+        </Devices>
+        ${buildMixerDevice(mixerCfg)}
+      </DeviceChain>
+    </MidiTrack>`;
+}
+
+// ─── Drum Group Track ─────────────────────────────────────────────────────────
+// A single GroupTrack containing the DrumRack + post-rack FX chain.
+
+function buildDrumGroupTrack(
+  pads:     DrumPadConfig[],
+  endBeat:  number,
+): string {
+  const trackId  = nextId();
+  const color    = 18; // deep orange
+
+  const drumRackXml = buildDrumRack(pads);
+  // Post-drum-rack chain: Drum Bus analogue (EQ + Glue + Limiter)
+  const postFxXml =
+    buildEqEight([
+      { freq: 40,   gain: -2,  q: 0.71, mode: 2,  on: true  },  // HP 40Hz
+      { freq: 200,  gain: 1.5, q: 0.9,  mode: 4,  on: true  },  // Low shelf +1.5
+      { freq: 3500, gain: 1.2, q: 1.4,  mode: 5,  on: true  },  // Bell 3.5k presence
+      { freq: 12000,gain: -1,  q: 0.7,  mode: 7,  on: true  },  // High shelf rolloff
+    ]) +
+    buildGlueCompressor({ threshold: -8, ratio: 1, attack: 1, release: 0, makeup: 2, dryWet: 0.8 }) +
+    buildLimiter(-0.5, 1.0);
+
+  return `
+    <GroupTrack Id="${trackId}">
+      <LomId Value="0" />
+      <LomIdView Value="0" />
+      <IsContentSelectedInDocument Value="false" />
+      <PreferredContentViewMode Value="0" />
+      <TrackDelay><Value Value="0" /><IsValueSampleBased Value="false" /></TrackDelay>
+      <Name>
+        <EffectiveName Value="Drums" />
+        <UserName Value="" /><Annotation Value="" /><MemorizedFirstClipName Value="" />
+      </Name>
+      <Color Value="${color}" />
+      <AutomationEnvelopes><Envelopes /></AutomationEnvelopes>
+      <TrackGroupId Value="-1" />
+      <TrackUnfolded Value="true" />
+      <DevicesListWrapper LomId="0" />
+      <ClipSlotsListWrapper LomId="0" />
+      <ViewData Value="{}" />
+      <TakeLanes>
+        <TakeLane Id="0">
+          <LomId Value="0" /><Name Value="Drums" /><Annotation Value="" />
+          <IsContentSelectedInDocument Value="false" />
+          <ClipSlotList>
+            <ClipSlot Id="0"><HasStopButton Value="true" /><NeedRefreeze Value="false" /></ClipSlot>
+          </ClipSlotList>
+        </TakeLane>
+      </TakeLanes>
+      <DeviceChain>
+        <AutomationLanes><AutomationLanes /></AutomationLanes>
+        <ClipEnvelopeChooserViewState>
+          <SelectedDevice Value="0" /><SelectedEnvelope Value="0" /><PreferModulationVisible Value="false" />
+        </ClipEnvelopeChooserViewState>
+        <AudioInputRouting>
+          <Target Value="AudioIn/None" /><UpperDisplayString Value="No Input" /><LowerDisplayString Value="" />
+        </AudioInputRouting>
+        <AudioOutputRouting>
+          <Target Value="AudioOut/Master" /><UpperDisplayString Value="Master" /><LowerDisplayString Value="" />
+        </AudioOutputRouting>
+        <Devices>
+          ${drumRackXml}
+          ${postFxXml}
+        </Devices>
+        ${buildMixerDevice({ volume: 0.9, sendAmounts: [0.0, 0.0] })}
+      </DeviceChain>
+    </GroupTrack>`;
+}
+
+// ─── Return Track ────────────────────────────────────────────────────────────
+
+function buildReturnTrack(returnIdx: number, name: string, color: number, devicesXml: string): string {
+  const trackId = nextId();
+
+  return `
+    <ReturnTrack Id="${trackId}">
+      <LomId Value="0" />
+      <LomIdView Value="0" />
+      <IsContentSelectedInDocument Value="false" />
+      <PreferredContentViewMode Value="0" />
+      <TrackDelay><Value Value="0" /><IsValueSampleBased Value="false" /></TrackDelay>
+      <Name>
+        <EffectiveName Value="${xmlAttr(name)}" />
+        <UserName Value="" /><Annotation Value="" /><MemorizedFirstClipName Value="" />
+      </Name>
+      <Color Value="${color}" />
+      <AutomationEnvelopes><Envelopes /></AutomationEnvelopes>
+      <TrackGroupId Value="-1" />
+      <TrackUnfolded Value="false" />
+      <DevicesListWrapper LomId="0" />
+      <ClipSlotsListWrapper LomId="0" />
+      <ViewData Value="{}" />
+      <TakeLanes>
+        <TakeLane Id="0">
+          <LomId Value="0" /><Name Value="${xmlAttr(name)}" /><Annotation Value="" />
+          <IsContentSelectedInDocument Value="false" />
+          <ClipSlotList />
+        </TakeLane>
+      </TakeLanes>
+      <DeviceChain>
+        <AutomationLanes><AutomationLanes /></AutomationLanes>
+        <ClipEnvelopeChooserViewState>
+          <SelectedDevice Value="0" /><SelectedEnvelope Value="0" /><PreferModulationVisible Value="false" />
+        </ClipEnvelopeChooserViewState>
+        <AudioInputRouting>
+          <Target Value="AudioIn/Return/${returnIdx}" />
+          <UpperDisplayString Value="Return ${returnIdx + 1}" /><LowerDisplayString Value="" />
+        </AudioInputRouting>
+        <AudioOutputRouting>
+          <Target Value="AudioOut/Master" /><UpperDisplayString Value="Master" /><LowerDisplayString Value="" />
+        </AudioOutputRouting>
+        <Devices>${devicesXml}</Devices>
+        ${buildMixerDevice({ volume: 0.9, sendAmounts: [] })}
+      </DeviceChain>
+    </ReturnTrack>`;
+}
+
+// ─── Master Track (full) ──────────────────────────────────────────────────────
+
+function buildMasterTrackFull(bpm: number, projectName: string): string {
+  const masterFxXml =
+    buildEqEight([
+      { freq: 60,   gain: 1.5, q: 0.5,  mode: 4, on: true },  // Low shelf boost
+      { freq: 200,  gain: -1,  q: 0.9,  mode: 5, on: true },  // Cut mud
+      { freq: 8000, gain: 0.8, q: 0.5,  mode: 7, on: true },  // Air shelf
+    ]) +
+    buildGlueCompressor({ threshold: -6, ratio: 0, attack: 2, release: 0, makeup: 1, dryWet: 0.7 }) +
+    buildLimiter(-0.3, 1.0);
+
+  return `
+    <MasterTrack>
+      <LomId Value="0" />
+      <LomIdView Value="0" />
+      <IsContentSelectedInDocument Value="false" />
+      <PreferredContentViewMode Value="0" />
+      <TrackDelay><Value Value="0" /><IsValueSampleBased Value="false" /></TrackDelay>
+      <Name>
+        <EffectiveName Value="Master" />
+        <UserName Value="" />
+        <Annotation Value="${xmlAttr(`DARKSCO ${projectName} — generated by ableton-ai-control-bridge`)}" />
+        <MemorizedFirstClipName Value="" />
+      </Name>
+      <Color Value="${TRACK_COLORS.mix}" />
+      <AutomationEnvelopes><Envelopes /></AutomationEnvelopes>
+      <TrackGroupId Value="-1" />
+      <TrackUnfolded Value="false" />
+      <DevicesListWrapper LomId="0" />
+      <ClipSlotsListWrapper LomId="0" />
+      <ViewData Value="{}" />
+      <DeviceChain>
+        <AutomationLanes><AutomationLanes /></AutomationLanes>
+        <ClipEnvelopeChooserViewState>
+          <SelectedDevice Value="0" /><SelectedEnvelope Value="0" /><PreferModulationVisible Value="false" />
+        </ClipEnvelopeChooserViewState>
+        <AudioInputRouting>
+          <Target Value="AudioIn/None" /><UpperDisplayString Value="No Input" /><LowerDisplayString Value="" />
+        </AudioInputRouting>
+        <AudioOutputRouting>
+          <Target Value="AudioOut/Master" /><UpperDisplayString Value="Master" /><LowerDisplayString Value="" />
+        </AudioOutputRouting>
+        <Devices>${masterFxXml}</Devices>
+        <MixerDevice Id="${nextId()}">
+          <LomId Value="0" />
+          <LomIdView Value="0" />
+          <IsExpanded Value="true" />
+          ${buildDeviceOn()}
+          <ParametersListWrapper LomId="0" />
+          <Volume>
+            ${buildAutoParam(1.0, 0, 2)}
+          </Volume>
+          <Panorama>
+            ${buildAutoParam(0, -1, 1)}
+          </Panorama>
+          <Tempo>
+            <LomId Value="0" />
+            <Manual Value="${bpm}" />
+            <AutomationTarget Id="${nextId()}" />
+            <ModulationTarget Id="${nextId()}" />
+          </Tempo>
+        </MixerDevice>
+      </DeviceChain>
+    </MasterTrack>`;
+}
+
+// ─── Drum pad definitions ──────────────────────────────────────────────────────
+
+function makeDrumPads(root: string): DrumPadConfig[] {
+  // root = ZIP root prefix, e.g. "DARKSCO_Night_120bpm/"
+  const drumPath = (stem: string, layer: string) =>
+    `${root}Samples/Drums/${stem}/${stem}_${layer}.wav`;
+
+  return [
+    {
+      name: "Kick", midiNote: 36, stemType: "kick", color: 18,
+      eqBands: [
+        { freq: 40,  gain: 3,   q: 0.5,  mode: 5, on: true },  // Sub boost
+        { freq: 500, gain: -2,  q: 1.4,  mode: 5, on: true },  // Remove boxiness
+        { freq: 4000,gain: 2.5, q: 1.0,  mode: 5, on: true },  // Click attack
+        { freq: 80,  gain: 0,   q: 0.71, mode: 2, on: true },  // HP 80Hz very gentle
+      ],
+      compConfig: { threshold: -12, ratio: 3, attack: 3, release: 60, knee: 3, makeup: 2 },
+      velocityLayers: [
+        { file: drumPath("kick","soft"),   velMin: 1,   velMax: 60,  velRoot: 40 },
+        { file: drumPath("kick","medium"), velMin: 61,  velMax: 100, velRoot: 90 },
+        { file: drumPath("kick","hard"),   velMin: 101, velMax: 127, velRoot: 120 },
+      ],
+    },
+    {
+      name: "Snare", midiNote: 38, stemType: "snare", color: 15,
+      eqBands: [
+        { freq: 120,  gain: -3,  q: 0.71, mode: 2, on: true },  // HP
+        { freq: 200,  gain: 2,   q: 1.0,  mode: 5, on: true },  // Body
+        { freq: 900,  gain: -1.5,q: 1.2,  mode: 5, on: true },  // Remove nasal
+        { freq: 5000, gain: 3,   q: 1.4,  mode: 5, on: true },  // Crack
+        { freq: 10000,gain: 1.5, q: 0.7,  mode: 7, on: true },  // Air
+      ],
+      compConfig: { threshold: -14, ratio: 4, attack: 5, release: 80, knee: 4, makeup: 3 },
+      velocityLayers: [
+        { file: drumPath("snare","soft"),   velMin: 1,   velMax: 55,  velRoot: 40 },
+        { file: drumPath("snare","medium"), velMin: 56,  velMax: 100, velRoot: 80 },
+        { file: drumPath("snare","hard"),   velMin: 101, velMax: 127, velRoot: 120 },
+      ],
+    },
+    {
+      name: "Hihat", midiNote: 42, stemType: "hihat", color: 57,
+      eqBands: [
+        { freq: 600,  gain: 0,   q: 0.71, mode: 2, on: true },  // HP 600Hz
+        { freq: 3000, gain: -1,  q: 1.0,  mode: 5, on: true },  // Tame midrange
+        { freq: 10000,gain: 1,   q: 0.8,  mode: 7, on: true },  // Preserve air
+      ],
+      compConfig: { threshold: -20, ratio: 2, attack: 2, release: 30, knee: 6, makeup: 0 },
+      velocityLayers: [
+        { file: drumPath("hihat","soft"),   velMin: 1,   velMax: 60,  velRoot: 40 },
+        { file: drumPath("hihat","medium"), velMin: 61,  velMax: 100, velRoot: 90 },
+        { file: drumPath("hihat","hard"),   velMin: 101, velMax: 127, velRoot: 120 },
+      ],
+    },
+    {
+      name: "Open Hat", midiNote: 46, stemType: "openHihat", color: 40,
+      eqBands: [
+        { freq: 800,  gain: 0,   q: 0.71, mode: 2, on: true },  // HP 800Hz
+        { freq: 8000, gain: 1.5, q: 0.7,  mode: 7, on: true },  // Shimmer
+      ],
+      compConfig: { threshold: -18, ratio: 2, attack: 5, release: 200, knee: 6, makeup: 0 },
+      velocityLayers: [
+        { file: drumPath("openHihat","soft"),   velMin: 1,   velMax: 60,  velRoot: 40 },
+        { file: drumPath("openHihat","medium"), velMin: 61,  velMax: 100, velRoot: 90 },
+        { file: drumPath("openHihat","hard"),   velMin: 101, velMax: 127, velRoot: 120 },
+      ],
+    },
+    {
+      name: "Clap", midiNote: 40, stemType: "clap", color: 26,
+      eqBands: [
+        { freq: 200,  gain: 0,   q: 0.71, mode: 2, on: true },  // HP 200Hz
+        { freq: 1000, gain: 1.5, q: 1.0,  mode: 5, on: true },  // Slap body
+        { freq: 7000, gain: 2.5, q: 1.2,  mode: 5, on: true },  // Crack
+      ],
+      compConfig: { threshold: -16, ratio: 3, attack: 4, release: 70, knee: 4, makeup: 2 },
+      velocityLayers: [
+        { file: drumPath("clap","soft"),   velMin: 1,   velMax: 60,  velRoot: 40 },
+        { file: drumPath("clap","medium"), velMin: 61,  velMax: 100, velRoot: 90 },
+        { file: drumPath("clap","hard"),   velMin: 101, velMax: 127, velRoot: 120 },
+      ],
+    },
+    {
+      name: "Perc", midiNote: 44, stemType: "perc", color: 33,
+      eqBands: [
+        { freq: 300,  gain: 0,   q: 0.71, mode: 2, on: true },  // HP 300Hz
+        { freq: 2500, gain: 2,   q: 1.4,  mode: 5, on: true },  // Metallic body
+        { freq: 8000, gain: 1,   q: 0.8,  mode: 7, on: true },  // Top end
+      ],
+      compConfig: { threshold: -18, ratio: 2, attack: 3, release: 60, knee: 6, makeup: 1 },
+      velocityLayers: [
+        { file: drumPath("perc","soft"),   velMin: 1,   velMax: 60,  velRoot: 40 },
+        { file: drumPath("perc","medium"), velMin: 61,  velMax: 100, velRoot: 90 },
+        { file: drumPath("perc","hard"),   velMin: 101, velMax: 127, velRoot: 120 },
+      ],
+    },
+  ];
+}
+
 // ─── Main ALS XML builder ─────────────────────────────────────────────────────
 
 interface BuildAlsInput {
@@ -619,19 +1725,19 @@ interface BuildAlsInput {
   hasMix:      boolean;
   mixStem?:    SamplepPackStem;
   sections?:   ArrangementSection[];
-  /** Per-stem MIDI note lists for multi-zone Simpler mapping */
   stemNotes?:  Record<string, number[]>;
+  /** ZIP root prefix needed for drum pad sample paths */
+  zipRoot:     string;
 }
 
-// MIDI root notes per stem type
+// MIDI root notes per melodic stem type
 const STEM_ROOT_NOTES: Record<string, number> = {
-  bass: 41, // F2
-  pad:  53, // F3
-  stab: 65, // F4
-  arp:  65, // F4
+  bass: 41,  // F2
+  pad:  53,  // F3
+  stab: 65,  // F4
+  arp:  65,  // F4
 };
 
-// Drum stems rendered as AudioTracks; melodic as MidiTracks
 const DRUM_STEMS = new Set(["kick", "snare", "hihat", "openHihat", "clap", "perc", "noise"]);
 
 async function buildAlsXml(input: BuildAlsInput): Promise<Buffer> {
@@ -640,33 +1746,166 @@ async function buildAlsXml(input: BuildAlsInput): Promise<Buffer> {
   const endBeat = barsToBeatTime(input.bars);
   const trackXml: string[] = [];
 
-  for (const stem of input.stems) {
-    if (DRUM_STEMS.has(stem.stem_type)) {
-      trackXml.push(buildAudioTrack(stem, endBeat));
-    } else {
-      const root  = STEM_ROOT_NOTES[stem.stem_type] ?? 60;
-      // Build multi-zone Simpler mapping if we have note data for this stem
-      const notes = input.stemNotes?.[stem.stem_type];
-      const zones = notes && notes.length > 0
-        ? buildZonesForMelodicStem(stem.stem_type, notes)
-        : undefined;
-      trackXml.push(buildMidiTrackWithZones(stem, endBeat, root, zones));
+  // ── Drum Group Track ──────────────────────────────────────────────────────
+  // All drum stems collapse into a single DrumRack group with per-pad EQ + Compressor chains.
+  const drumPads = makeDrumPads(input.zipRoot);
+  trackXml.push(buildDrumGroupTrack(drumPads, endBeat));
+
+  // ── Melodic MidiTracks with per-stem FX chains ────────────────────────────
+  const melodicStems = input.stems.filter(s => !DRUM_STEMS.has(s.stem_type));
+
+  // Send levels [returnA-Reverb, returnB-Delay] per stem
+  const SEND_LEVELS: Record<string, [number, number]> = {
+    bass: [0.00, 0.00],  // bass always dry — no reverb/delay
+    pad:  [0.35, 0.15],  // pad: lots of reverb, touch of delay
+    stab: [0.15, 0.20],  // stab: light reverb, rhythmic delay
+    arp:  [0.10, 0.30],  // arp: slight reverb, prominent delay
+  };
+
+  for (const stem of melodicStems) {
+    const root  = STEM_ROOT_NOTES[stem.stem_type] ?? 60;
+    const notes = input.stemNotes?.[stem.stem_type];
+    const zones = notes && notes.length > 0
+      ? buildZonesForMelodicStem(stem.stem_type, notes)
+      : undefined;
+
+    const [sendReverb, sendDelay] = SEND_LEVELS[stem.stem_type] ?? [0, 0];
+
+    // Per-stem FX chains (post-Simpler)
+    let fxXml = "";
+    switch (stem.stem_type) {
+      case "bass":
+        fxXml =
+          // Soft saturation for harmonic warmth
+          buildSaturator(4.0, 1, 0.7) +
+          // EQ: HP below 30Hz, sub shelf boost, cut low-mid mud, gentle top-end roll
+          buildEqEight([
+            { freq: 30,   gain: 0,   q: 0.71, mode: 2, on: true  },  // HP – remove DC
+            { freq: 60,   gain: 2.5, q: 0.6,  mode: 4, on: true  },  // Sub shelf
+            { freq: 300,  gain: -2,  q: 1.2,  mode: 5, on: true  },  // Cut mud
+            { freq: 1200, gain: 1.5, q: 1.4,  mode: 5, on: true  },  // Upper harmonics
+            { freq: 8000, gain: -2,  q: 0.7,  mode: 1, on: true  },  // LP 8kHz roll
+          ]) +
+          buildGlueCompressor({ threshold: -14, ratio: 2, attack: 3, release: 0, makeup: 1 }) +
+          // Utility: mono below 120Hz (keeps sub tight in club systems)
+          buildUtility(0, 1.0, 120);
+        break;
+
+      case "pad":
+        fxXml =
+          buildEqEight([
+            { freq: 80,   gain: 0,    q: 0.71, mode: 2, on: true  },  // HP 80Hz
+            { freq: 500,  gain: -1,   q: 1.0,  mode: 5, on: true  },  // Clean low-mid
+            { freq: 3000, gain: 1.5,  q: 0.8,  mode: 5, on: true  },  // Presence
+            { freq: 12000,gain: 2,    q: 0.6,  mode: 7, on: true  },  // High shelf air
+          ]) +
+          buildCompressor({ threshold: -16, ratio: 2, attack: 20, release: 300, knee: 8, makeup: 1 }) +
+          buildChorusEnsemble(0.35, 3, 0.45) +   // Ensemble mode, subtle width
+          buildUtility(-1.5, 1.0);               // Slight gain trim for headroom
+        break;
+
+      case "stab":
+        fxXml =
+          buildEqEight([
+            { freq: 120,  gain: 0,   q: 0.71, mode: 2, on: true  },  // HP 120Hz
+            { freq: 800,  gain: 2,   q: 1.6,  mode: 5, on: true  },  // Mid bite
+            { freq: 4000, gain: 1.5, q: 1.2,  mode: 5, on: true  },  // Top-end brightness
+            { freq: 16000,gain: -1.5,q: 0.7,  mode: 7, on: true  },  // Tame harshness
+          ]) +
+          buildSaturator(6.0, 1, 0.6) +  // Analog saturation for grit
+          buildCompressor({ threshold: -10, ratio: 4, attack: 2, release: 50, knee: 3, makeup: 2 }) +
+          buildUtility(0, 0.9);          // Slight narrow — keeps it punchy in mix
+        break;
+
+      case "arp":
+        fxXml =
+          buildEqEight([
+            { freq: 100,  gain: 0,   q: 0.71, mode: 2, on: true  },  // HP 100Hz
+            { freq: 600,  gain: -1.5,q: 1.0,  mode: 5, on: true  },  // Clean low-mid
+            { freq: 2500, gain: 2,   q: 1.2,  mode: 5, on: true  },  // Sparkle
+            { freq: 10000,gain: 1.5, q: 0.8,  mode: 7, on: true  },  // Air
+          ]) +
+          buildCompressor({ threshold: -12, ratio: 3, attack: 5, release: 80, knee: 4, makeup: 1 }) +
+          buildUtility(0, 1.0);
+        break;
+
+      default:
+        fxXml = buildEqEight([
+          { freq: 80,  gain: 0, q: 0.71, mode: 2, on: true },
+          { freq: 200, gain: 0, q: 0.71, mode: 5, on: false },
+        ]);
     }
+
+    trackXml.push(buildMidiTrackFull(
+      stem, endBeat, root, zones, fxXml,
+      { volume: 1.0, sendAmounts: [sendReverb, sendDelay] },
+    ));
   }
 
+  // ── Master Mix AudioTrack ─────────────────────────────────────────────────
   if (input.hasMix && input.mixStem) {
-    trackXml.push(buildAudioTrack(input.mixStem, endBeat, true));
+    const mixFx =
+      buildEqEight([
+        { freq: 30,   gain: 0,  q: 0.71, mode: 2, on: true },  // HP
+        { freq: 8000, gain: 1,  q: 0.5,  mode: 7, on: true },  // Air shelf
+      ]) +
+      buildGlueCompressor({ threshold: -10, ratio: 0, attack: 2, release: 0, makeup: 0.5, dryWet: 0.5 }) +
+      buildLimiter(-0.5, 1.0);
+
+    trackXml.push(buildAudioTrackFull(input.mixStem, endBeat, true, mixFx, {
+      volume: 0.85,
+      sendAmounts: [0, 0],
+    }));
   }
+
+  // ── Return Track A — Reverb ───────────────────────────────────────────────
+  const returnA = buildReturnTrack(0, "A — Reverb", 49,   // teal
+    buildEqEight([
+      { freq: 120,  gain: 0,  q: 0.71, mode: 2, on: true },  // HP pre-reverb
+      { freq: 8000, gain: -1, q: 0.7,  mode: 1, on: true },  // LP pre-reverb
+    ]) +
+    buildReverb({
+      roomSize:    0.75,
+      decaySec:    2.4,
+      diffusion:   0.90,
+      preDelaySec: 0.015,
+      wetLevel:    1.0,
+      dryLevel:    0.0,
+      hpFreq:      120,
+      lpFreq:      8000,
+    })
+  );
+
+  // ── Return Track B — Delay ────────────────────────────────────────────────
+  const returnB = buildReturnTrack(1, "B — Delay", 57,  // steel blue
+    buildEqEight([
+      { freq: 200,  gain: 0,  q: 0.71, mode: 2, on: true },  // HP pre-delay
+      { freq: 8000, gain: 0,  q: 0.71, mode: 1, on: true },  // LP pre-delay
+    ]) +
+    buildDelay({
+      beatLeft:  3,   // 1/8
+      beatRight: 6,   // 3/8 (dotted quarter)
+      feedback:  0.30,
+      filterOn:  true,
+      hpFreq:    200,
+      lpFreq:    8000,
+      wet:       0.85,
+    })
+  );
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Ableton MajorVersion="11" MinorVersion="11.3.21.0" SchemaChangeCount="3" Creator="DARKSCO AI Bridge — ableton-ai-control-bridge" Revision="">
   <LiveSet>
-    <NextPointeeId Value="${trackIdCounter + 200}" />
+    <NextPointeeId Value="${trackIdCounter + 500}" />
     <OverwriteProtectionNumber Value="2819" />
     <LomId Value="0" />
     <Tracks>
       ${trackXml.join("\n")}
     </Tracks>
+    <ReturnTracks>
+      ${returnA}
+      ${returnB}
+    </ReturnTracks>
     <Transport>
       <PhaseNudgeTempo Value="10" />
       <LoopOn Value="false" />
@@ -745,23 +1984,7 @@ async function buildAlsXml(input: BuildAlsInput): Promise<Buffer> {
       <ContentLanes />
     </ContentLanes>
     ${buildScenesList(input.sections ?? [], input.bpm)}
-    <MasterTrack>
-      <LomId Value="0" />
-      <LomIdView Value="0" />
-      <IsContentSelectedInDocument Value="false" />
-      <PreferredContentViewMode Value="0" />
-      <TrackDelay>
-        <Value Value="0" />
-        <IsValueSampleBased Value="false" />
-      </TrackDelay>
-      <Name>
-        <EffectiveName Value="Master" />
-        <UserName Value="" />
-        <Annotation Value="${xmlAttr(`DARKSCO ${input.projectName} — generated by ableton-ai-control-bridge`)}" />
-        <MemorizedFirstClipName Value="" />
-      </Name>
-      <Color Value="${TRACK_COLORS.mix}" />
-    </MasterTrack>
+    ${buildMasterTrackFull(input.bpm, input.projectName)}
   </LiveSet>
 </Ableton>`;
 
@@ -908,6 +2131,7 @@ export async function buildAbletonPack(input: AbletonPackInput): Promise<Ableton
     mixStem:  stemForMix,
     sections: arrangementSections,
     stemNotes,
+    zipRoot:  root,
   });
   entries.push({ path: `${root}${projectName}.als`, data: alsBuffer });
 
@@ -920,7 +2144,32 @@ export async function buildAbletonPack(input: AbletonPackInput): Promise<Ableton
     `--------`,
     `${projectName}.als`,
     `  Ableton Live 11/12 project file. Drag onto Ableton Live to open directly.`,
-    `  Pre-built tracks: AudioTrack per drum stem, MidiTrack+Simpler per melodic stem.`,
+    `  READY FOR LIVE PLAY — all tracks have native instrument + FX chains pre-loaded.`,
+    ``,
+    `  TRACK LAYOUT`,
+    `  ─────────────────────────────────────────────────────────────────────────────`,
+    `  [GroupTrack]  Drums  — DrumRack (6 pads) → Drum Bus EQ → Glue Compressor → Limiter`,
+    `    [DrumBranch] Kick   C1  — Simpler (3 vel layers) → EQ Eight → Compressor`,
+    `    [DrumBranch] Snare  D1  — Simpler (3 vel layers) → EQ Eight → Compressor`,
+    `    [DrumBranch] Hihat  F#1 — Simpler (3 vel layers) → EQ Eight → Compressor`,
+    `    [DrumBranch] OpenHat A#1 — Simpler (3 vel layers) → EQ Eight → Compressor`,
+    `    [DrumBranch] Clap   E1  — Simpler (3 vel layers) → EQ Eight → Compressor`,
+    `    [DrumBranch] Perc   G#1 — Simpler (3 vel layers) → EQ Eight → Compressor`,
+    `  [MidiTrack]   Bass   — Simpler (12 zones) → Saturator → EQ Eight → Glue Comp → Utility (mono <120Hz)`,
+    `  [MidiTrack]   Pad    — Simpler (10 zones) → EQ Eight → Compressor → Chorus-Ensemble → Utility`,
+    `  [MidiTrack]   Stab   — Simpler (10 zones) → EQ Eight → Saturator → Compressor → Utility`,
+    `  [MidiTrack]   Arp    — Simpler (10 zones) → EQ Eight → Compressor → Utility`,
+    `  [AudioTrack]  Master Mix — WAV clip → EQ Eight → Glue Compressor → Limiter`,
+    `  [ReturnTrack] A — Reverb — EQ Eight (HP+LP) → Reverb (2.4s decay, Size 75)`,
+    `  [ReturnTrack] B — Delay  — EQ Eight (HP+LP) → Delay (1/8L + 3/8R, 30% FB)`,
+    `  [MasterTrack] Master — EQ Eight → Glue Compressor → Limiter (-0.3dBTP)`,
+    ``,
+    `  SEND AMOUNTS (pre-baked)`,
+    `  Bass:  Reverb 0%,  Delay 0%  (bass stays dry)`,
+    `  Pad:   Reverb 35%, Delay 15%`,
+    `  Stab:  Reverb 15%, Delay 20%`,
+    `  Arp:   Reverb 10%, Delay 30%`,
+    ``,
     `  ${arrangementSections.length} Scenes: ${arrangementSections.map(s => s.name).join(", ")}`,
     ``,
     `Samples/Originals/           — ${pipeline.samplepack.stems.length + 1} full-length WAV stems (48kHz / 24-bit)`,
