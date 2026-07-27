@@ -491,23 +491,25 @@ export async function POST(req: NextRequest) {
     });
 
     // ── STAGE 5: Final WAV Master ────────────────────────────────────────────
-    // Always render the final master mix (production essential)
-    let finalWav: FullPipelineResponse["final_wav"];
+    // Always render the final master mix. Requires at least one stem channel.
+    if (mixChannels.length === 0) {
+      throw new Error("No stems were rendered — cannot build master mix. Check variant preset configuration.");
+    }
     const master = masterMix(mixChannels, {
       ...preset.masterParams,
       targetLufs: -14,
       ceilingDbTP: -0.3,
       bitDepth: 24,
     });
-    finalWav = {
-      wav_b64:     master.wavBuffer.toString("base64"),
-      wav_url:     "",
-      wav_path:    "",
-      lufs:        master.lufs.integratedLufs,
-      truePeak:    master.lufs.truePeakDbTP,
+    const finalWav: FullPipelineResponse["final_wav"] = {
+      wav_b64:      master.wavBuffer.toString("base64"),
+      wav_url:      "",
+      wav_path:     "",
+      lufs:         master.lufs.integratedLufs,
+      truePeak:     master.lufs.truePeakDbTP,
       dynamicRange: master.lufs.dynamicRangeDb,
-      durationSec: master.durationSec,
-      sizeBytes:   master.wavBuffer.length,
+      durationSec:  master.durationSec,
+      sizeBytes:    master.wavBuffer.length,
     };
 
     // Run compliance checker after we know LUFS

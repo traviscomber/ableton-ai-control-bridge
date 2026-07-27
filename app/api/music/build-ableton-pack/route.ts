@@ -62,10 +62,9 @@ export async function POST(req: NextRequest) {
       );
     }
     if (!pipeline.final_wav?.wav_b64) {
-      return NextResponse.json(
-        { error: "Pipeline must include final_wav (run generate-stems with includeMix: true)" },
-        { status: 400 }
-      );
+      // final_wav is optional in the ZIP — ALS project and stems are the primary deliverable.
+      // Log a warning but continue rather than blocking the entire pack build.
+      console.warn("[build-ableton-pack] final_wav missing — master WAV will be excluded from ZIP");
     }
 
     // Build the pack
