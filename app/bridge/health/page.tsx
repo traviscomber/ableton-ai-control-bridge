@@ -55,7 +55,8 @@ const QUICK_COMMANDS = [
 ];
 
 export default function HealthPage() {
-  const [health, setHealth] = useState<BridgeHealth | null>(makeMockHealth);
+  // Start null on SSR; mock data loaded client-side only in useEffect
+  const [health, setHealth] = useState<BridgeHealth | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
   const [isMockMode, setIsMockMode] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -70,7 +71,7 @@ export default function HealthPage() {
       setIsMockMode(false);
     } catch {
       setHealthError("Cannot reach bridge at http://127.0.0.1:8765");
-      setHealth(null);
+      setHealth(makeMockHealth());
     }
   }, []);
 

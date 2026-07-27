@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { ChevronDown, ChevronUp, Check, X, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "./StatusBadge";
@@ -28,13 +28,6 @@ function formatDate(iso: string): string {
   } catch {
     return iso;
   }
-}
-
-function FormattedTimestamp({ iso }: { iso: string }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
-  if (!mounted) return null;
-  return <>{formatDate(iso)} {formatTime(iso)}</>;
 }
 
 interface CommandCardProps {
@@ -102,7 +95,7 @@ export function CommandCard({
             </span>
             <span className="text-[10px] text-muted-foreground">·</span>
             <span className="text-[10px] text-muted-foreground">
-              <FormattedTimestamp iso={command.created_at} />
+              {formatDate(command.created_at)} {formatTime(command.created_at)}
             </span>
             {command.source && (
               <>

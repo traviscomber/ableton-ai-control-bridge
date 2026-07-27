@@ -77,7 +77,9 @@ function makeMockCommands(): BridgeCommand[] {
 type FilterMode = "all" | "pending" | "active";
 
 export default function QueuePage() {
-  const [commands, setCommands] = useState<BridgeCommand[]>(makeMockCommands);
+  // Start with empty array on SSR — mock data is loaded client-side only
+  // in useEffect, preventing SSR/client Date.now() timestamp mismatch.
+  const [commands, setCommands] = useState<BridgeCommand[]>([]);
   const [health, setHealth] = useState<BridgeHealth | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterMode>("all");
@@ -96,7 +98,8 @@ export default function QueuePage() {
       setHealthError(null);
       setIsMockMode(false);
     } catch {
-      // Bridge not running locally — keep mock data
+      // Bridge not running locally — load mock data client-side
+      setCommands(makeMockCommands());
       setHealthError("Cannot reach bridge at http://127.0.0.1:8765");
     }
   }, []);

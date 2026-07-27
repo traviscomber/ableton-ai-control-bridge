@@ -47,7 +47,8 @@ const ALL_STATUSES: CommandStatus[] = [
 ];
 
 export default function HistoryPage() {
-  const [commands, setCommands] = useState<BridgeCommand[]>(makeMockHistory);
+  // Empty on SSR; mock data loaded client-side only in useEffect
+  const [commands, setCommands] = useState<BridgeCommand[]>([]);
   const [isMockMode, setIsMockMode] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [search, setSearch] = useState("");
@@ -61,7 +62,8 @@ export default function HistoryPage() {
       setCommands(cmds);
       setIsMockMode(false);
     } catch {
-      // Bridge offline — keep mock data
+      // Bridge offline — load mock data client-side
+      setCommands(makeMockHistory());
     }
   }, []);
 
