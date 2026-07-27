@@ -1,0 +1,205 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+
+  /* Brand tokens */
+  --color-brand: var(--brand);
+  --color-brand-dim: var(--brand-dim);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-overlay: var(--surface-overlay);
+  --color-text-dim: var(--text-dim);
+  --color-text-faint: var(--text-faint);
+
+  /* Status tokens */
+  --color-status-pending: var(--status-pending);
+  --color-status-accepted: var(--status-accepted);
+  --color-status-sent: var(--status-sent);
+  --color-status-acknowledged: var(--status-acknowledged);
+  --color-status-rejected: var(--status-rejected);
+  --color-status-error: var(--status-error);
+  --color-status-simulated: var(--status-simulated);
+}
+
+:root {
+  /* Base palette — always-dark app */
+  --background:        #0d0d0f;
+  --foreground:        #e8e8ea;
+  --card:              #131316;
+  --card-foreground:   #e8e8ea;
+  --popover:           #1a1a1e;
+  --popover-foreground: #e8e8ea;
+
+  /* Surfaces */
+  --surface:           #131316;
+  --surface-raised:    #1c1c21;
+  --surface-overlay:   #242429;
+
+  /* Neutrals */
+  --muted:             #1c1c21;
+  --muted-foreground:  #6b6b76;
+  --secondary:         #1c1c21;
+  --secondary-foreground: #e8e8ea;
+  --text-dim:          #9898a4;
+  --text-faint:        #4d4d57;
+
+  /* Primary — cool white */
+  --primary:           #e8e8ea;
+  --primary-foreground: #0d0d0f;
+
+  /* Accent — acid green (signature brand color) */
+  --brand:             #4dffa0;
+  --brand-dim:         #1a4d38;
+  --accent:            #4dffa0;
+  --accent-foreground: #0d0d0f;
+
+  /* Structural */
+  --border:            #222228;
+  --input:             #1c1c21;
+  --ring:              #4dffa0;
+  --destructive:       #ff4d4d;
+  --radius:            0.5rem;
+
+  /* Status badges */
+  --status-pending:     #f5a623;
+  --status-accepted:    #4dffa0;
+  --status-sent:        #4d9fff;
+  --status-acknowledged: #4dffa0;
+  --status-rejected:    #ff4d4d;
+  --status-error:       #ff4d4d;
+  --status-simulated:   #9898a4;
+
+  /* Sidebar */
+  --sidebar:           #0d0d0f;
+  --sidebar-foreground: #e8e8ea;
+  --sidebar-primary:   #4dffa0;
+  --sidebar-primary-foreground: #0d0d0f;
+  --sidebar-accent:    #1c1c21;
+  --sidebar-accent-foreground: #e8e8ea;
+  --sidebar-border:    #222228;
+  --sidebar-ring:      #4dffa0;
+}
+
+/* Dark class kept for potential toggle — matches :root defaults */
+.dark {
+  --background:        #0d0d0f;
+  --foreground:        #e8e8ea;
+  --card:              #131316;
+  --card-foreground:   #e8e8ea;
+  --popover:           #1a1a1e;
+  --popover-foreground: #e8e8ea;
+  --surface:           #131316;
+  --surface-raised:    #1c1c21;
+  --surface-overlay:   #242429;
+  --muted:             #1c1c21;
+  --muted-foreground:  #6b6b76;
+  --secondary:         #1c1c21;
+  --secondary-foreground: #e8e8ea;
+  --text-dim:          #9898a4;
+  --text-faint:        #4d4d57;
+  --primary:           #e8e8ea;
+  --primary-foreground: #0d0d0f;
+  --brand:             #4dffa0;
+  --brand-dim:         #1a4d38;
+  --accent:            #4dffa0;
+  --accent-foreground: #0d0d0f;
+  --border:            #222228;
+  --input:             #1c1c21;
+  --ring:              #4dffa0;
+  --destructive:       #ff4d4d;
+  --status-pending:    #f5a623;
+  --status-accepted:   #4dffa0;
+  --status-sent:       #4d9fff;
+  --status-acknowledged: #4dffa0;
+  --status-rejected:   #ff4d4d;
+  --status-error:      #ff4d4d;
+  --status-simulated:  #9898a4;
+  --sidebar:           #0d0d0f;
+  --sidebar-foreground: #e8e8ea;
+  --sidebar-primary:   #4dffa0;
+  --sidebar-primary-foreground: #0d0d0f;
+  --sidebar-accent:    #1c1c21;
+  --sidebar-accent-foreground: #e8e8ea;
+  --sidebar-border:    #222228;
+  --sidebar-ring:      #4dffa0;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a2a30;
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3a42;
+}
+
+/* Monospace data displays */
+.data-mono {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+}
+
+/* Pulse dot animation */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.pulse-dot {
+  animation: pulse-dot 1.8s ease-in-out infinite;
+}
