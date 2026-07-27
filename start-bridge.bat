@@ -10,6 +10,9 @@ echo.
 echo Starting on http://127.0.0.1:8765
 echo Config: bridge.config.json (no token required)
 echo.
+echo Diagnostic: python bridge-diagnostic.py
+echo.
+timeout /t 2 /nobreak
 
 :: Navigate to project folder (same folder as this .bat file)
 cd /d "%~dp0"
