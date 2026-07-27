@@ -1,0 +1,281 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                  MUSIC PRODUCTION HUB - COMPLETE SYSTEM                        ║
+║                     Like Property Partners for Music                            ║
+║                          July 27, 2026 - v1.0                                  ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+┌─ UNIFIED INTERFACE ──────────────────────────────────────────────────────────┐
+│                                                                              │
+│  Navigation Bar (Sticky)                                                    │
+│  ├─ Hub (/music-hub)                                                        │
+│  ├─ Create Project (/music)                                                 │
+│  ├─ DARKSCO Workflows (/darksco/workflows)                                 │
+│  └─ Pipeline (/darksco/pipeline)                                           │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ HUB DASHBOARD (/music-hub) ────────────────────────────────────────────────┐
+│                                                                              │
+│  Stats Overview (4 Cards)                                                   │
+│  ├─ 🔵 Total Projects: 5                                                    │
+│  ├─ 🟡 In Progress: 3                                                       │
+│  ├─ 🟠 Ready for Approval: 1                                                │
+│  └─ 🟢 Released: 1                                                          │
+│                                                                              │
+│  Active Projects Grid                                                       │
+│  ├─ PROJECT 1: Night Protocol 002                                           │
+│  │  ├─ Style: dark techno                                                   │
+│  │  ├─ Status: 🟡 validation                                                │
+│  │  ├─ Progress: ▓▓▓▓▓░░░░░ 65%                                            │
+│  │  ├─ Metrics: 7 stems | 24 clips | Score: 82                             │
+│  │  ├─ Next: Run Soundsmith validation (Due: 1d)                           │
+│  │  └─ [Click to open detail page]                                         │
+│  │                                                                          │
+│  ├─ PROJECT 2: Ambient Dreams v1                                           │
+│  │  ├─ Style: ambient                                                       │
+│  │  ├─ Status: 🟠 approval                                                  │
+│  │  ├─ Progress: ▓▓▓▓▓▓▓▓░░ 75%                                            │
+│  │  ├─ Metrics: 5 stems | 18 clips | Score: 78                             │
+│  │  ├─ ⚠️  Blockers: "Atmosphere lacks depth"                              │
+│  │  ├─ Next: Address Venom feedback (Due: 2d)                              │
+│  │  └─ [Click to open detail page]                                         │
+│  │                                                                          │
+│  └─ PROJECT 3: Industrial Chaos 01                                          │
+│     ├─ Style: experimental                                                  │
+│     ├─ Status: 🔵 soundbank                                                 │
+│     ├─ Progress: ▓▓▓▓░░░░░░ 40%                                            │
+│     ├─ Metrics: 3 stems | 0 clips | No score yet                           │
+│     ├─ Next: Upload remaining stems (Due: 1d)                              │
+│     └─ [Click to open detail page]                                         │
+│                                                                              │
+│  Workflow Stage Guide (6 Phases)                                            │
+│  ├─ Design: ♪ Create profile                                               │
+│  ├─ Soundbank: 💿 Upload stems                                              │
+│  ├─ Clips: ⚡ Extract segments                                              │
+│  ├─ Validation: 📈 Soundsmith check                                         │
+│  ├─ Approval: ✓ Venom scoring                                              │
+│  └─ Release: 🎵 DARKSCO approval                                            │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ PROJECT DETAIL PAGE (/music-hub/project/[id]) ────────────────────────────┐
+│                                                                              │
+│  Project Header                                                             │
+│  ├─ Title: Night Protocol 002                                              │
+│  ├─ Details: dark techno • 120 BPM • A minor                               │
+│  └─ [Edit Project] [View in DARKSCO] [Back to Hub]                        │
+│                                                                              │
+│  Production Timeline (6 Phases)                                             │
+│  │                                                                          │
+│  ├─ ✓ Phase 1: Sound Design                                                │
+│  │  ├─ Status: completed (2026-07-24)                                      │
+│  │  └─ Profile: dark techno | [bass, pad, drums, fx] | [cinematic, ...]   │
+│  │                                                                          │
+│  ├─ ✓ Phase 2: Soundbank                                                   │
+│  │  ├─ Status: completed (2026-07-25)                                      │
+│  │  └─ Metrics: 7 stems collected                                          │
+│  │                                                                          │
+│  ├─ ✓ Phase 3: Clip Extraction                                             │
+│  │  ├─ Status: completed (2026-07-26)                                      │
+│  │  └─ Metrics: 24 clips extracted                                         │
+│  │                                                                          │
+│  ├─ ⏳ Phase 4: Soundsmith Validation                                        │
+│  │  ├─ Status: in-progress                                                 │
+│  │  ├─ Score: 82/100                                                       │
+│  │  ├─ Style Authenticity: 90/100                                          │
+│  │  ├─ Instrumentation Coherence: 85/100                                   │
+│  │  ├─ Mood Alignment: 88/100                                              │
+│  │  └─ Decision: ✓ VALID - Ready for Venom                                │
+│  │                                                                          │
+│  ├─ ⏹ Phase 5: Venom Quality Scoring                                        │
+│  │  ├─ Status: pending                                                     │
+│  │  └─ Message: Awaiting quality assessment                               │
+│  │                                                                          │
+│  └─ ⏹ Phase 6: DARKSCO Workflow                                             │
+│     ├─ Status: pending                                                     │
+│     └─ Message: Awaiting all agent approvals                              │
+│                                                                              │
+│  Quick Actions                                                              │
+│  ├─ [♪ Edit Project] - Modify design or stems                              │
+│  ├─ [⚡ View in DARKSCO] - See full approval workflow                      │
+│  └─ [📊 Back to Hub] - Return to projects list                             │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ CREATE/EDIT PROJECT (/music) ──────────────────────────────────────────────┐
+│                                                                              │
+│  Three-Stage Workflow                                                       │
+│                                                                              │
+│  Stage 1: Sound Design Brief                                                │
+│  ├─ Project Name: Night Protocol 002                                       │
+│  ├─ Style: dark techno                                                     │
+│  ├─ BPM: 120                                                                │
+│  ├─ Key: A minor                                                            │
+│  ├─ Instrumentation: [bass] [pad] [drums] [fx]                             │
+│  ├─ Mood Keywords: [cinematic] [intense] [ominous]                         │
+│  └─ [Create Sound Design Profile]                                          │
+│                                                                              │
+│  Stage 2: Soundbank Creator                                                 │
+│  ├─ Soundbank Name: Night Protocol v1.0                                    │
+│  ├─ Description: [form]                                                     │
+│  ├─ [Create Soundbank]                                                      │
+│  │                                                                          │
+│  ├─ Upload Stems                                                            │
+│  ├─ [Drag files or click to browse]                                        │
+│  │                                                                          │
+│  ├─ Stems List                                                              │
+│  ├─ ✓ Bass - Sub 808 (4.5MB | 32s)                                         │
+│  ├─ ✓ Pad - Evolving (3.2MB | 45s)                                         │
+│  ├─ ✓ Drums - Kick 808 (2.1MB | 8s)                                        │
+│  ├─ ✓ FX - Texture (1.8MB | 22s)                                           │
+│  └─ [Finalize Soundbank]                                                    │
+│                                                                              │
+│  Stage 3: Workflow Status                                                   │
+│  ├─ ✓ Soundbank ready for quality check                                    │
+│  ├─ [Validate with Soundsmith]                                             │
+│  ├─ Next: Soundsmith validation → Venom scoring → DARKSCO                 │
+│  └─ Timeline: Design → Soundbank → Validation → Approval → Release        │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ ORCHESTRATOR INTELLIGENCE ─────────────────────────────────────────────────┐
+│                                                                              │
+│  Phase Detection (Automatic)                                                │
+│  ├─ No soundbank? → Phase: "design"                                        │
+│  ├─ Status "draft"? → Phase: "stems"                                       │
+│  ├─ Status "stems-collected"? → Phase: "extraction"                        │
+│  ├─ Status "clips-extracted"? → Phase: "soundsmith"                        │
+│  ├─ Status "quality-check"? → Phase: "venom"                               │
+│  └─ Status "approved"? → Phase: "darksco"                                  │
+│                                                                              │
+│  Next Action Planning (Intelligent)                                         │
+│  ├─ Phase: design → "Create soundbank and upload stems"                    │
+│  ├─ Phase: stems → "Upload at least 3 stems"                               │
+│  ├─ Phase: extraction → "Extract clips from uploaded stems"                │
+│  ├─ Phase: soundsmith → "Run Soundsmith validation"                        │
+│  ├─ Phase: venom → "Request Venom quality scoring"                         │
+│  └─ Phase: darksco → "Send to DARKSCO workflow"                            │
+│                                                                              │
+│  Blocker Detection (Automatic)                                              │
+│  ├─ If soundsmith.blockers[] → Red alert in hub                            │
+│  ├─ If venom.decision === "revise" → Orange alert                          │
+│  └─ Display: "Address X blockers before proceeding"                        │
+│                                                                              │
+│  Progress Calculation                                                       │
+│  ├─ Design: 0-15%                                                           │
+│  ├─ Soundbank: 15-40%                                                       │
+│  ├─ Clips: 40-60%                                                           │
+│  ├─ Validation: 60-75%                                                      │
+│  ├─ Approval: 75-90%                                                        │
+│  └─ Release: 90-100%                                                        │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+SYSTEM ARCHITECTURE:
+
+┌─ Database (Supabase) ─────────────────────────────────────────────────────┐
+│ sound_design_profiles → soundbanks → stems → clips → clip_versions       │
+│ production_feedback → soundbank_releases → darksco_workflows            │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ Orchestrator Layer ──────────────────────────────────────────────────────┐
+│ MusicProductionOrchestrator (central intelligence)                       │
+│ ├─ getProjectDashboard() → Complete overview                            │
+│ ├─ buildMusicProject() → Phase detection + metrics                      │
+│ ├─ getProjectNextSteps() → Intelligent actions                          │
+│ └─ transitionPhase() → Quick navigation                                 │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ API Routes ──────────────────────────────────────────────────────────────┐
+│ /api/music/profiles (CRUD)                                               │
+│ /api/music/soundbanks (CRUD)                                             │
+│ /api/music/stems (Create, List)                                          │
+│ /api/music/clips (Create, List)                                          │
+│ /api/music/validate-soundbank (Soundsmith)                               │
+└──────────────────────────────────────────────────────────────────────────┘
+
+WORKFLOW FLOW:
+
+Sound Design Brief
+        ↓
+   [User fills form]
+        ↓
+POST /api/music/profiles
+        ↓
+sound_design_profiles record created
+        ↓
+Hub shows: "design" status
+        ↓
+User clicks: "Create Soundbank and Upload Stems"
+        ↓
+Soundbank stage with 2-step form
+        ↓
+POST /api/music/soundbanks + POST /api/music/stems (x7)
+        ↓
+stems records created + total_stems updated
+        ↓
+Hub shows: "soundbank" status (7 stems)
+        ↓
+User clicks: "Extract Clips"
+        ↓
+POST /api/music/clips (x24 clips)
+        ↓
+clips records created + total_clips updated
+        ↓
+Hub shows: "clips" status (24 clips)
+        ↓
+User clicks: "Run Soundsmith Validation"
+        ↓
+POST /api/music/validate-soundbank
+        ↓
+executeSoundsmithAgent() → 100-point assessment
+        ↓
+production_feedback record stored
+        ↓
+If VALID: Hub shows "validation" status, next: "Venom scoring"
+If NEEDS_REVISION: Red alert with blockers
+        ↓
+User fixes issues or moves to Venom
+        ↓
+Venom scores soundbank (100-point scale)
+        ↓
+If APPROVE (80+): Hub shows "approval" status, next: "DARKSCO"
+If REVISE: Orange alert with feedback
+        ↓
+User implements feedback or proceeds to DARKSCO
+        ↓
+DARKSCO workflow (7 agents + 6 quality gates)
+        ↓
+All agents review + Doom makes final decision
+        ↓
+If APPROVED: Hub shows "released" status, ✓ Complete
+        ↓
+Project finished → Ready for distribution
+
+STATISTICS & METRICS:
+
+Per-Project:
+├─ Total Stems: 7
+├─ Total Clips: 24
+├─ Soundsmith Score: 82/100
+├─ Venom Score: 78/100 (or pending)
+├─ Blockers: ["Atmosphere lacks depth"]
+└─ Timeline: All phase completion dates
+
+Dashboard:
+├─ Total Projects: 5
+├─ In Progress: 3
+├─ Ready for Approval: 1
+└─ Released: 1
+
+STATUS CODES:
+
+design     🔵 Initial profile creation
+soundbank  🔵 Stems collection phase
+clips      🟣 Clip extraction phase
+validation 🟡 Soundsmith assessment
+approval   🟠 Venom scoring + DARKSCO
+released   🟢 Complete and ready
+
+BUILD STATUS: ✓ Zero errors | 72 pages | Production ready
+
