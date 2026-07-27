@@ -1,11 +1,11 @@
-import { createServerClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 import type { AgentResponse } from "@/lib/types";
 
 // Generic agent operation handler implementing shared protocol
 export async function POST(request: Request) {
   try {
-    const supabase = await createServerClient();
+    const supabase = await createClient();
     const body = await request.json();
 
     const { workflow_id, agent_id, operation_data } = body;

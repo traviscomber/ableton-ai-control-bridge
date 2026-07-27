@@ -1,9 +1,9 @@
-import { createServerClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    const supabase = await createServerClient();
+    const supabase = await createClient();
     
     const { data: workflows, error } = await supabase
       .from("darksco_workflows")
@@ -25,7 +25,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createServerClient();
+    const supabase = await createClient();
     const body = await request.json();
 
     const { project_id, objective, deadline } = body;
