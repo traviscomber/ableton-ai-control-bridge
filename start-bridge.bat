@@ -1,6 +1,5 @@
 @echo off
-REM Ableton AI Control Bridge Launcher
-REM This script starts the WebSocket bridge for Ableton Live
+title Ableton AI Control Bridge
 
 cls
 echo.
@@ -8,16 +7,35 @@ echo ========================================
 echo   Ableton AI Control Bridge
 echo ========================================
 echo.
-echo Starting WebSocket server...
-echo Listen on: ws://127.0.0.1:8765
+echo Starting on http://127.0.0.1:8765
+echo Config: bridge.config.json (no token required)
 echo.
 
-python -m ableton_bridge
+:: Navigate to project folder (same folder as this .bat file)
+cd /d "%~dp0"
 
-REM Keep window open if there's an error
+:: Clear token from environment so bridge.config.json wins
+set ABLETON_BRIDGE_TOKEN=
+
+:: Install if not already installed
+pip show ableton-bridge >nul 2>&1
 if errorlevel 1 (
+    echo Installing ableton_bridge...
+    pip install -e .
+    if errorlevel 1 (
+        echo.
+        echo ERROR: pip install failed. Make sure Python is installed.
+        pause
+        exit /b 1
+    )
+    echo Done.
     echo.
-    echo ERROR: Failed to start bridge
-    echo Make sure Python is installed and ableton_bridge module is available
-    pause
 )
+
+:: Launch with config file — token is null inside bridge.config.json
+:: This overrides any ABLETON_BRIDGE_TOKEN env var on your machine
+python -m ableton_bridge --config bridge.config.json
+
+echo.
+echo Bridge stopped.
+pause

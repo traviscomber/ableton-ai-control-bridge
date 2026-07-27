@@ -1,0 +1,11 @@
+{
+  "token": null,
+  "require_approval": false,
+  "dry_run": false,
+  "host": "127.0.0.1",
+  "port": 8765,
+  "udp_host": "127.0.0.1",
+  "udp_port": 9001,
+  "ack_host": "127.0.0.1",
+  "ack_port": 9002
+}
