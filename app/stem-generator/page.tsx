@@ -1253,6 +1253,103 @@ export default function StemGeneratorPage() {
             <SectionDivider title="Stage 5 — Final WAV Master" />
             <MasterWavCard wav={result.final_wav} />
 
+            {/* ── ADVANCED SYNTH ENGINES ────────────────────────────────────── */}
+            <SectionDivider title="Advanced Synth Engines & Presets" />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              {/* Multi-Layer Wavetable */}
+              <div className="rounded-lg border p-4" style={{ borderColor: "#3cd4a8" + "40", backgroundColor: "#3cd4a8" + "07" }}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs font-mono font-semibold uppercase" style={{ color: "#3cd4a8" }}>Wavetable Synths</span>
+                </div>
+                <div className="space-y-2 text-xs font-mono">
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: "var(--text-faint)" }}>Layer 1: Soft Init Osc</span>
+                    <span style={{ color: "#3cd4a8" }}>Foundation</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: "var(--text-faint)" }}>Layer 2: Bright Square</span>
+                    <span style={{ color: "#3cd4a8" }}>+Octave</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: "var(--text-faint)" }}>Layer 3: Dark Sawtooth</span>
+                    <span style={{ color: "#3cd4a8" }}>Sub</span>
+                  </div>
+                  <div className="pt-2 border-t" style={{ borderColor: "#3cd4a8" + "20" }}>
+                    <p style={{ color: "var(--text-faint)" }}>Multi-layer morphing with FM modulation. Blend via 8 macros.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* FM Operator Presets */}
+              <div className="rounded-lg border p-4" style={{ borderColor: "#8c5de8" + "40", backgroundColor: "#8c5de8" + "07" }}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs font-mono font-semibold uppercase" style={{ color: "#8c5de8" }}>FM Operator Presets</span>
+                </div>
+                <div className="space-y-2 text-xs font-mono">
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: "var(--text-faint)" }}>Bell FM</span>
+                    <span style={{ color: "#8c5de8" }}>Glassy</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: "var(--text-faint)" }}>Pad FM</span>
+                    <span style={{ color: "#8c5de8" }}>Warm</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: "var(--text-faint)" }}>Bright FM</span>
+                    <span style={{ color: "#8c5de8" }}>Lead</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: "var(--text-faint)" }}>Metallic FM</span>
+                    <span style={{ color: "#8c5de8" }}>Clang</span>
+                  </div>
+                  <div className="pt-2 border-t" style={{ borderColor: "#8c5de8" + "20" }}>
+                    <p style={{ color: "var(--text-faint)" }}>4-algorithm FM synths with evolving harmonics.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Enhanced MIDI Effects */}
+              <div className="rounded-lg border p-4" style={{ borderColor: "#3c9de8" + "40", backgroundColor: "#3c9de8" + "07" }}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs font-mono font-semibold uppercase" style={{ color: "#3c9de8" }}>MIDI Effects Stack</span>
+                </div>
+                <div className="space-y-2 text-xs font-mono">
+                  <div style={{ color: "var(--text-faint)" }}>✓ Scale (always on — harmonic safety)</div>
+                  <div style={{ color: "var(--text-faint)" }}>+ Chord (auto-voicing, toggleable)</div>
+                  <div style={{ color: "var(--text-faint)" }}>+ Arpeggiator (multiple modes)</div>
+                  <div style={{ color: "var(--text-faint)" }}>+ Note Length (humanization)</div>
+                  <div className="pt-2 border-t" style={{ borderColor: "#3c9de8" + "20" }}>
+                    <p style={{ color: "var(--text-faint)" }}>Performance-ready MIDI chain for live control.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Granular Sampler */}
+              <div className="rounded-lg border p-4" style={{ borderColor: "#e8a23c" + "40", backgroundColor: "#e8a23c" + "07" }}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs font-mono font-semibold uppercase" style={{ color: "#e8a23c" }}>Sampler Warping</span>
+                </div>
+                <div className="space-y-2 text-xs font-mono">
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: "var(--text-faint)" }}>Grain-based Texture</span>
+                    <span style={{ color: "#e8a23c" }}>40 ms</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: "var(--text-faint)" }}>Warp Mode</span>
+                    <span style={{ color: "#e8a23c" }}>Time-stretch</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: "var(--text-faint)" }}>Transposition</span>
+                    <span style={{ color: "#e8a23c" }}>±48 st</span>
+                  </div>
+                  <div className="pt-2 border-t" style={{ borderColor: "#e8a23c" + "20" }}>
+                    <p style={{ color: "var(--text-faint)" }}>Creative sample morphing without plugins.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* ── PRO PACK FEATURES ─────────────────────────────────────────── */}
             <SectionDivider title="Pro Pack Features" />
 
