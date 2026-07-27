@@ -286,6 +286,7 @@ export async function GET() {
       .select();
 
     if (clipsResponse.error) throw clipsResponse.error;
+    const clips = clipsResponse.data;
 
     // Update soundbank status
     await supabase
@@ -308,7 +309,7 @@ export async function GET() {
             duration: s.duration_seconds,
             frequency_range: s.frequency_range,
           })),
-          clips: daytimeClips.map((c) => ({
+          clips: clips.map((c) => ({
             id: c.id,
             name: c.name,
             duration: c.duration_seconds,

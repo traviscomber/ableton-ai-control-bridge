@@ -4,7 +4,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { ChevronRight, Music, Zap, Moon, Sun, Clock } from 'lucide-react';
 
-type Variant = 'daytime' | 'morning' | 'night' | null;
+type VariantKey = 'daytime' | 'morning' | 'night';
+type Creating = VariantKey | null;
 
 interface SoundbankResult {
   profile: {
@@ -37,8 +38,8 @@ interface SoundbankResult {
 }
 
 export default function DARKSCOTrilogyDemo() {
-  const [creating, setCreating] = useState<Variant>(null);
-  const [results, setResults] = useState<Record<Variant, SoundbankResult | null>>({
+  const [creating, setCreating] = useState<Creating>(null);
+  const [results, setResults] = useState<Record<VariantKey, SoundbankResult | null>>({
     daytime: null,
     morning: null,
     night: null,
@@ -83,9 +84,7 @@ export default function DARKSCOTrilogyDemo() {
     },
   ];
 
-  const createSoundbank = async (variant: Variant) => {
-    if (!variant) return;
-
+  const createSoundbank = async (variant: VariantKey) => {
     setCreating(variant);
     try {
       const response = await fetch(
@@ -127,7 +126,8 @@ export default function DARKSCOTrilogyDemo() {
         <div className="grid md:grid-cols-3 gap-6 mb-12">
           {variants.map((variant) => {
             const Icon = variant.icon;
-            const result = results[variant.id as Variant];
+            const variantKey = variant.id as VariantKey;
+            const result = results[variantKey];
             const isCreating = creating === variant.id;
 
             return (
@@ -210,7 +210,7 @@ export default function DARKSCOTrilogyDemo() {
                   ) : (
                     // Create Button
                     <button
-                      onClick={() => createSoundbank(variant.id as Variant)}
+                      onClick={() => createSoundbank(variant.id as VariantKey)}
                       disabled={isCreating}
                       className={`w-full py-2 px-4 rounded font-medium text-sm transition flex items-center justify-center gap-2 ${
                         isCreating
