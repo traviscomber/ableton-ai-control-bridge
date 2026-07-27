@@ -199,16 +199,19 @@ def make_handler(state: BridgeState) -> type[BaseHTTPRequestHandler]:
             return payload
 
         def do_OPTIONS(self) -> None:
-            """Handle CORS preflight so browsers can call the bridge directly."""
+            """Handle CORS preflight — must respond before any auth check."""
             self.send_response(204)
-            self._cors_headers()
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type,X-Bridge-Token,Authorization")
+            self.send_header("Access-Control-Max-Age", "86400")
             self.send_header("Content-Length", "0")
             self.end_headers()
 
         def _cors_headers(self) -> None:
             self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Bridge-Token, Authorization")
+            self.send_header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type,X-Bridge-Token,Authorization")
 
         def _send_json(self, status: int, payload: dict[str, Any]) -> None:
             body = json.dumps(payload, indent=2).encode("utf-8")
