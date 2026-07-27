@@ -1962,12 +1962,146 @@ function buildArpeggiatorMidiEffect(
           </Arpeggiator>`;
 }
 
-// ─── Wavetable Synth Track ─────────────────────────────────────────────────────
-// Alternative performance layer running in parallel with Simpler.
-// Uses native Wavetable with basic setup (init osc, default filter).
+// ─── Chord MIDI Effect (note doubler/voicing) ──────────────────────────────
+// Adds chord notes based on input + scale + voicing mode
 
-function buildWavetableSynthChain(): string {
+function buildChordMidiEffect(isActive = true): string {
+  const chordId = nextId();
+
+  return `
+          <Chord Id="${chordId}">
+            <LomId Value="0" />
+            <LomIdView Value="0" />
+            <IsExpanded Value="false" />
+            <On>
+              <LomId Value="0" />
+              <Manual Value="${isActive}" />
+              <AutomationTarget Id="${nextId()}" />
+              <ModulationTarget Id="${nextId()}" />
+            </On>
+            <ParametersListWrapper LomId="0" />
+            <Voicing>
+              <LomId Value="0" />
+              <Manual Value="0" />
+              <AutomationTarget Id="${nextId()}" />
+              <ModulationTarget Id="${nextId()}" />
+            </Voicing>
+            <ChordType>
+              <LomId Value="0" />
+              <Manual Value="0" />
+              <AutomationTarget Id="${nextId()}" />
+              <ModulationTarget Id="${nextId()}" />
+            </ChordType>
+            <Inversion>
+              <LomId Value="0" />
+              <Manual Value="0" />
+              <AutomationTarget Id="${nextId()}" />
+              <ModulationTarget Id="${nextId()}" />
+            </Inversion>
+            <Transpose>
+              <LomId Value="0" />
+              <Manual Value="0" />
+              <AutomationTarget Id="${nextId()}" />
+              <ModulationTarget Id="${nextId()}" />
+            </Transpose>
+            <Name Value="${xmlAttr("Chord: Major Triads")}" />
+            <Annotation Value="" />
+          </Chord>`;
+}
+
+// ─── Note Length MIDI Effect (randomizer for groove) ──────────────────────
+// Randomize note lengths for humanized/organic feel
+
+function buildNoteLengthMidiEffect(isActive = true): string {
+  const nlId = nextId();
+
+  return `
+          <NoteLength Id="${nlId}">
+            <LomId Value="0" />
+            <LomIdView Value="0" />
+            <IsExpanded Value="false" />
+            <On>
+              <LomId Value="0" />
+              <Manual Value="${isActive}" />
+              <AutomationTarget Id="${nextId()}" />
+              <ModulationTarget Id="${nextId()}" />
+            </On>
+            <ParametersListWrapper LomId="0" />
+            <Mode>
+              <LomId Value="0" />
+              <Manual Value="1" />
+              <AutomationTarget Id="${nextId()}" />
+              <ModulationTarget Id="${nextId()}" />
+            </Mode>
+            <Length>
+              <LomId Value="0" />
+              <Manual Value="0.5" />
+              <AutomationTarget Id="${nextId()}" />
+              <ModulationTarget Id="${nextId()}" />
+            </Length>
+            <Randomness>
+              <LomId Value="0" />
+              <Manual Value="0.3" />
+              <AutomationTarget Id="${nextId()}" />
+              <ModulationTarget Id="${nextId()}" />
+            </Randomness>
+            <Name Value="${xmlAttr("Note Length: Humanize")}" />
+            <Annotation Value="" />
+          </NoteLength>`;
+}
+
+// ─── Dual Arpeggiator Stack (for complex rhythmic patterns) ──────────────
+// Two arpeggiators in series for polyrhythmic effects
+
+function buildDualArpeggiatorStack(): string {
+  const arp1 = buildArpeggiatorMidiEffect(0, 3, 1, true);  // Up, 1/8
+  const arp2 = buildArpeggiatorMidiEffect(1, 4, 1, false); // Down, 1/16 (disabled by default)
+
+  return `${arp1}${arp2}`;
+}
+
+// ─── Advanced MIDI Effects Chain (Stack for maximum control) ──────────────
+// Scale + Chord + Arpeggiator + Note Length for complex performance
+
+function buildAdvancedMidiEffectsChain(keyRoot = 0, useChord = true): string {
+  let chain = buildScaleMidiEffect(keyRoot, 0, true);  // Scale first
+  
+  if (useChord) {
+    chain += buildChordMidiEffect(true);  // Add chord voicing
+  }
+  
+  chain += buildArpeggiatorMidiEffect(0, 3, 1, true);   // Arpeggiator
+  chain += buildNoteLengthMidiEffect(false);             // Note Length (off by default)
+
+  return chain;
+}
+
+// ─── Advanced Wavetable Synth Chains ──────────────────────────────────────────
+// Multi-layer Wavetable synthesis with FM modulation for rich harmonics
+
+interface WavetableConfig {
+  wavetable?: string;
+  tableIndex?: number;
+  transpose?: number;
+  detune?: number;
+  unison?: number;
+  filterFreq?: number;
+  resonance?: number;
+  fmAmount?: number;  // FM modulation amount (0–1)
+}
+
+function buildWavetableSynthChain(cfg: WavetableConfig = {}): string {
   const wavetableId = nextId();
+  const {
+    wavetable = "Wavetables/Init Osc",
+    tableIndex = 0,
+    transpose = 0,
+    detune = 0,
+    unison = 1,
+    filterFreq = 0.5,
+    resonance = 0.4,
+    fmAmount = 0,
+  } = cfg;
 
   return `
           <Wavetable Id="${wavetableId}">
@@ -1978,26 +2112,26 @@ function buildWavetableSynthChain(): string {
             <ParametersListWrapper LomId="0" />
             <Oscillator>
               <WavetableRef>
-                <Value Value="Wavetables/Init Osc" />
+                <Value Value="${wavetable}" />
               </WavetableRef>
               <TableIndex>
-                ${buildAutoParam(0, 0, 1)}
+                ${buildAutoParam(tableIndex, 0, 1)}
               </TableIndex>
               <Transpose>
-                ${buildAutoParam(0, -48, 48)}
+                ${buildAutoParam(transpose, -48, 48)}
               </Transpose>
               <Detune>
-                ${buildAutoParam(0, -100, 100)}
+                ${buildAutoParam(detune, -100, 100)}
               </Detune>
               <Phase>
                 ${buildAutoParam(0, 0, 360)}
               </Phase>
               <UniSpread>
-                ${buildAutoParam(0, 0, 1)}
+                ${buildAutoParam(Math.min(unison * 0.3, 1), 0, 1)}
               </UniSpread>
               <UniVoices>
                 <LomId Value="0" />
-                <Manual Value="1" />
+                <Manual Value="${Math.max(1, Math.floor(unison))}" />
                 <AutomationTarget Id="${nextId()}" />
               </UniVoices>
               <Pan>
@@ -2016,17 +2150,245 @@ function buildWavetableSynthChain(): string {
             <Filter>
               <FilterType Value="1" />
               <Frequency>
-                ${buildAutoParam(0.5, 0, 1)}
+                ${buildAutoParam(filterFreq, 0, 1)}
               </Frequency>
               <Resonance>
-                ${buildAutoParam(0.4, 0, 1)}
+                ${buildAutoParam(resonance, 0, 1)}
               </Resonance>
               <Morph>
-                ${buildAutoParam(0, 0, 1)}
+                ${buildAutoParam(fmAmount, 0, 1)}
               </Morph>
             </Filter>
           </Wavetable>`;
 }
+
+// ─── Multi-Layer Wavetable Synth (2 Wavetables + filter feedback) ────────────
+// Stacks two different wavetables for richer harmonics and preset variety
+
+function buildMultiLayerWavetableChain(): string {
+  // Layer 1: Init Osc with moderate filter
+  const layer1 = buildWavetableSynthChain({
+    wavetable: "Wavetables/Init Osc",
+    tableIndex: 0,
+    detune: 0,
+    unison: 1,
+    filterFreq: 0.6,
+    resonance: 0.3,
+  });
+
+  // Layer 2: Square/Saw wavetable with higher filter cutoff (bright layer)
+  const layer2 = buildWavetableSynthChain({
+    wavetable: "Wavetables/Square",
+    tableIndex: 0,
+    detune: 12,  // +1 octave for brightness
+    unison: 2,   // Unison for width
+    filterFreq: 0.75,
+    resonance: 0.2,
+  });
+
+  // Simple mixer/crossfade setup (both layers at 0.5 vol by default)
+  return `${layer1}${layer2}`;
+}
+
+// ─── Operator FM Synthesis ────────────────────────────────────────────────────
+// FM synth for bell tones, metallic sounds, evolving textures
+// Operator has 4 operators: Carrier (C), Modulator 1 (M1), M2, M3
+
+function buildOperatorFmSynth(preset: "bell" | "pad" | "bright" | "metallic" = "bright"): string {
+  const operatorId = nextId();
+
+  // FM algorithm presets
+  const presets = {
+    bell: { algo: 3, ratio1: 2, ratio2: 3, ratio3: 0.5, index: 8 },      // Classic bell FM
+    pad: { algo: 2, ratio1: 1.5, ratio2: 2, ratio3: 1, index: 4 },       // Pad/synth pad
+    bright: { algo: 1, ratio1: 2, ratio2: 4, ratio3: 8, index: 6 },      // Bright/lead
+    metallic: { algo: 4, ratio1: 0.5, ratio2: 3, ratio3: 5, index: 10 }, // Metallic/inharmonic
+  };
+
+  const p = presets[preset] ?? presets.bright;
+
+  return `
+          <Operator Id="${operatorId}">
+            <LomId Value="0" />
+            <LomIdView Value="0" />
+            <IsExpanded Value="true" />
+            ${buildDeviceOn()}
+            <ParametersListWrapper LomId="0" />
+            <Algorithm>
+              <LomId Value="0" />
+              <Manual Value="${p.algo}" />
+              <AutomationTarget Id="${nextId()}" />
+            </Algorithm>
+            <Volume>
+              <LomId Value="0" />
+              <Manual Value="0.8" />
+              <AutomationTarget Id="${nextId()}" />
+            </Volume>
+            <NumVoices>
+              <LomId Value="0" />
+              <Manual Value="12" />
+              <AutomationTarget Id="${nextId()}" />
+            </NumVoices>
+            <VoiceVibrato>0.3</VoiceVibrato>
+            <UnisonVoices Value="1" />
+            <UnisonDetune Value="0.1" />
+            <UnisonSpread Value="0" />
+            <Portamento>
+              <Time>
+                <LomId Value="0" />
+                <Manual Value="0" />
+                <AutomationTarget Id="${nextId()}" />
+              </Time>
+            </Portamento>
+            <Operators>
+              <!-- Carrier operator (C) -->
+              <Operator Id="0">
+                <Volume>
+                  <LomId Value="0" />
+                  <Manual Value="1" />
+                  <AutomationTarget Id="${nextId()}" />
+                </Volume>
+                <Coarse>
+                  <LomId Value="0" />
+                  <Manual Value="1" />
+                  <AutomationTarget Id="${nextId()}" />
+                </Coarse>
+                <Fine>
+                  <LomId Value="0" />
+                  <Manual Value="0" />
+                  <AutomationTarget Id="${nextId()}" />
+                </Fine>
+              </Operator>
+              <!-- Modulator 1 -->
+              <Operator Id="1">
+                <Volume>
+                  <LomId Value="0" />
+                  <Manual Value="${p.index * 0.1}" />
+                  <AutomationTarget Id="${nextId()}" />
+                </Volume>
+                <Coarse>
+                  <LomId Value="0" />
+                  <Manual Value="${p.ratio1}" />
+                  <AutomationTarget Id="${nextId()}" />
+                </Coarse>
+                <Fine>
+                  <LomId Value="0" />
+                  <Manual Value="0" />
+                  <AutomationTarget Id="${nextId()}" />
+                </Fine>
+              </Operator>
+              <!-- Modulator 2 -->
+              <Operator Id="2">
+                <Volume>
+                  <LomId Value="0" />
+                  <Manual Value="${p.index * 0.06}" />
+                  <AutomationTarget Id="${nextId()}" />
+                </Volume>
+                <Coarse>
+                  <LomId Value="0" />
+                  <Manual Value="${p.ratio2}" />
+                  <AutomationTarget Id="${nextId()}" />
+                </Coarse>
+                <Fine>
+                  <LomId Value="0" />
+                  <Manual Value="0" />
+                  <AutomationTarget Id="${nextId()}" />
+                </Fine>
+              </Operator>
+              <!-- Modulator 3 -->
+              <Operator Id="3">
+                <Volume>
+                  <LomId Value="0" />
+                  <Manual Value="${p.index * 0.03}" />
+                  <AutomationTarget Id="${nextId()}" />
+                </Volume>
+                <Coarse>
+                  <LomId Value="0" />
+                  <Manual Value="${p.ratio3}" />
+                  <AutomationTarget Id="${nextId()}" />
+                </Coarse>
+                <Fine>
+                  <LomId Value="0" />
+                  <Manual Value="0" />
+                  <AutomationTarget Id="${nextId()}" />
+                </Fine>
+              </Operator>
+            </Operators>
+            <LfoAmount>
+              <LomId Value="0" />
+              <Manual Value="0" />
+              <AutomationTarget Id="${nextId()}" />
+            </LfoAmount>
+            <Name Value="${xmlAttr(`Operator: ${preset}`)}" />
+            <Annotation Value="" />
+          </Operator>`;
+}
+
+// ─── Enhanced Sampler with Granular Warping ────────────────────────────────
+// Sampler with time-stretching and grain/warp controls for creative texture
+
+function buildSamplerWithWarping(samplePath: string): string {
+  const samplerId = nextId();
+
+  return `
+          <Sampler Id="${samplerId}">
+            <LomId Value="0" />
+            <LomIdView Value="0" />
+            <IsExpanded Value="true" />
+            ${buildDeviceOn()}
+            <ParametersListWrapper LomId="0" />
+            <SampleRef>
+              <FileRef>
+                <RelativePathElement Dir="samples">${samplePath}</RelativePathElement>
+              </FileRef>
+            </SampleRef>
+            <TransposeFine>
+              ${buildAutoParam(0, -100, 100)}
+            </TransposeFine>
+            <TransposeCoarse>
+              ${buildAutoParam(0, -48, 48)}
+            </TransposeCoarse>
+            <Grain>
+              <LomId Value="0" />
+              <Manual Value="0.04" />
+              <AutomationTarget Id="${nextId()}" />
+            </Grain>
+            <WarpMode Value="1" />
+            <StartMarker>
+              <LomId Value="0" />
+              <Manual Value="0" />
+              <AutomationTarget Id="${nextId()}" />
+            </StartMarker>
+            <EndMarker>
+              <LomId Value="0" />
+              <Manual Value="100" />
+              <AutomationTarget Id="${nextId()}" />
+            </EndMarker>
+            <SampleLoopMode Value="0" />
+            <SampleLoopStart>
+              <LomId Value="0" />
+              <Manual Value="0" />
+              <AutomationTarget Id="${nextId()}" />
+            </SampleLoopStart>
+            <SampleLoopLength>
+              <LomId Value="0" />
+              <Manual Value="100" />
+              <AutomationTarget Id="${nextId()}" />
+            </SampleLoopLength>
+            <Envelope>
+              <AmplitudeEnvelope>
+                <Lom Id="0" />
+                <Time0 Value="0.01" /><Level0 Value="1" /><Time1 Value="0.1" /><Level1 Value="0.9" />
+                <Time2 Value="2" /><Level2 Value="0.7" /><Time3 Value="0.5" /><Level3 Value="0" />
+              </AmplitudeEnvelope>
+            </Envelope>
+            <Name Value="${xmlAttr("Sampler: Warped")}" />
+            <Annotation Value="" />
+          </Sampler>`;
+}
+
+// ─── Synth Track Builders (preset-aware) ──────────────────────────────────
+// Different synth layers available per track type: basic WT, FM bell, multilayer, etc.
 
 function buildWavetableMidiTrack(
   name: string,
@@ -2036,11 +2398,28 @@ function buildWavetableMidiTrack(
   midiEffectsXml: string = "",
   mixerCfg: Partial<MixerCfg> = {},
   stemType: string = "pad",
+  synth: "wavetable" | "multilayer" | "operator" = "wavetable",
 ): string {
   const trackId = nextId();
   const clipId  = nextId();
 
-  const wavetableXml = buildWavetableSynthChain();
+  // Select synth engine based on preset
+  let synthXml = "";
+  let trackSuffix = " (WT)";
+  
+  if (synth === "multilayer") {
+    synthXml = buildMultiLayerWavetableChain();
+    trackSuffix = " (WT-Multi)";
+  } else if (synth === "operator") {
+    // Select Operator preset based on stem type
+    const opPreset = stemType === "pad" ? "pad" : stemType === "arp" ? "bright" : "metallic";
+    synthXml = buildOperatorFmSynth(opPreset);
+    trackSuffix = " (FM)";
+  } else {
+    synthXml = buildWavetableSynthChain();
+    trackSuffix = " (WT)";
+  }
+
   const eqXml = buildEqEight([
     { freq: 80,  gain: 0,  q: 0.71, mode: 2, on: true },
   ]);
@@ -2054,8 +2433,8 @@ function buildWavetableMidiTrack(
       <PreferredContentViewMode Value="0" />
       <TrackDelay><Value Value="0" /><IsValueSampleBased Value="false" /></TrackDelay>
       <Name>
-        <EffectiveName Value="${xmlAttr(name + " (WT)")}" />
-        <UserName Value="" /><Annotation Value="Wavetable synth alternative layer" /><MemorizedFirstClipName Value="" />
+        <EffectiveName Value="${xmlAttr(name + trackSuffix)}" />
+        <UserName Value="" /><Annotation Value="Synth ${synth} alternative layer" /><MemorizedFirstClipName Value="" />
       </Name>
       <Color Value="${color}" />
       <AutomationEnvelopes><Envelopes /></AutomationEnvelopes>
@@ -2066,11 +2445,11 @@ function buildWavetableMidiTrack(
       <ViewData Value="{}" />
       <TakeLanes>
         <TakeLane Id="0">
-          <LomId Value="0" /><Name Value="${xmlAttr(name + " (WT)")}" /><Annotation Value="" />
+          <LomId Value="0" /><Name Value="${xmlAttr(name + trackSuffix)}" /><Annotation Value="" />
           <IsContentSelectedInDocument Value="false" />
           <ClipSlotList>
             <ClipSlot Id="0">
-              <Value>${buildMidiClip(clipId, name + " (WT)", endBeat, rootNote, stemType)}</Value>
+              <Value>${buildMidiClip(clipId, name + trackSuffix, endBeat, rootNote, stemType)}</Value>
               <HasStopButton Value="true" /><NeedRefreeze Value="false" />
             </ClipSlot>
           </ClipSlotList>
@@ -2082,14 +2461,90 @@ function buildWavetableMidiTrack(
           <SelectedDevice Value="0" /><SelectedEnvelope Value="0" /><PreferModulationVisible Value="false" />
         </ClipEnvelopeChooserViewState>
         <MidiInputRouting>
-          <Target Value="MidiIn/External.All/-1" /><UpperDisplayString Value="Ext: All Ins" /><LowerDisplayString Value="" />
+          <Target Value="MidiIn/External.All/-1" />
+          <UpperDisplayString Value="Ext: All Ins" /><LowerDisplayString Value="" />
         </MidiInputRouting>
         <MidiOutputRouting>
           <Target Value="MidiOut/None" /><UpperDisplayString Value="No Output" /><LowerDisplayString Value="" />
         </MidiOutputRouting>
         <Devices>
           ${midiEffectsXml}
-          ${wavetableXml}
+          ${synthXml}
+          ${eqXml}
+          ${compXml}
+        </Devices>
+        ${buildMixerDevice(mixerCfg)}
+      </DeviceChain>
+    </MidiTrack>`;
+}
+
+// ─── FM Synth Preset Track (Operator-based alternative layer) ──────────────
+// Standalone Operator track for bell tones, metallic sounds, and evolved textures
+
+function buildOperatorMidiTrack(
+  name: string,
+  rootNote: number,
+  endBeat: number,
+  color: number,
+  preset: "bell" | "pad" | "bright" | "metallic" = "bell",
+  stemType: string = "pad",
+  midiEffectsXml: string = "",
+  mixerCfg: Partial<MixerCfg> = {},
+): string {
+  const trackId = nextId();
+  const clipId  = nextId();
+
+  const operatorXml = buildOperatorFmSynth(preset);
+  const eqXml = buildEqEight([
+    { freq: 80,  gain: 0,  q: 0.71, mode: 2, on: true },
+  ]);
+  const compXml = buildCompressor({ threshold: -20, ratio: 3, attack: 5, release: 80, knee: 4, makeup: 2 });
+
+  return `
+    <MidiTrack Id="${trackId}">
+      <LomId Value="0" />
+      <LomIdView Value="0" />
+      <IsContentSelectedInDocument Value="false" />
+      <PreferredContentViewMode Value="0" />
+      <TrackDelay><Value Value="0" /><IsValueSampleBased Value="false" /></TrackDelay>
+      <Name>
+        <EffectiveName Value="${xmlAttr(name + " (FM-" + preset + ")")}" />
+        <UserName Value="" /><Annotation Value="FM Synthesis - ${preset} preset" /><MemorizedFirstClipName Value="" />
+      </Name>
+      <Color Value="${color}" />
+      <AutomationEnvelopes><Envelopes /></AutomationEnvelopes>
+      <TrackGroupId Value="-1" />
+      <TrackUnfolded Value="false" />
+      <DevicesListWrapper LomId="0" />
+      <ClipSlotsListWrapper LomId="0" />
+      <ViewData Value="{}" />
+      <TakeLanes>
+        <TakeLane Id="0">
+          <LomId Value="0" /><Name Value="${xmlAttr(name + " (FM)")}" /><Annotation Value="" />
+          <IsContentSelectedInDocument Value="false" />
+          <ClipSlotList>
+            <ClipSlot Id="0">
+              <Value>${buildMidiClip(clipId, name + " (FM)", endBeat, rootNote, stemType)}</Value>
+              <HasStopButton Value="true" /><NeedRefreeze Value="false" />
+            </ClipSlot>
+          </ClipSlotList>
+        </TakeLane>
+      </TakeLanes>
+      <DeviceChain>
+        <AutomationLanes><AutomationLanes /></AutomationLanes>
+        <ClipEnvelopeChooserViewState>
+          <SelectedDevice Value="0" /><SelectedEnvelope Value="0" /><PreferModulationVisible Value="false" />
+        </ClipEnvelopeChooserViewState>
+        <MidiInputRouting>
+          <Target Value="MidiIn/External.All/-1" />
+          <UpperDisplayString Value="Ext: All Ins" /><LowerDisplayString Value="" />
+        </MidiInputRouting>
+        <MidiOutputRouting>
+          <Target Value="MidiOut/None" /><UpperDisplayString Value="No Output" /><LowerDisplayString Value="" />
+        </MidiOutputRouting>
+        <Devices>
+          ${midiEffectsXml}
+          ${operatorXml}
           ${eqXml}
           ${compXml}
         </Devices>
