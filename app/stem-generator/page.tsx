@@ -25,6 +25,7 @@ const STAGE_LABELS = [
   { key: "midi",         label: "MIDI" },
   { key: "quality_gates", label: "Quality Gates" },
   { key: "final_wav",    label: "Master WAV" },
+  { key: "ableton_pack", label: "Ableton Pack" },
 ];
 
 // ─── Tiny helpers ─────────────────────────────────────────────────────────────
@@ -453,6 +454,23 @@ function MasterWavCard({ wav }: { wav: FullPipelineResponse["final_wav"] }) {
   );
 }
 
+// ─── Pack file row ─────────────────────────────────────────────────────────────
+
+function PackFileRow({ icon, label, desc, color }: { icon: string; label: string; desc: string; color: string }) {
+  return (
+    <div className="flex items-center gap-2.5 py-0.5">
+      <span
+        className="text-xs font-mono px-1 py-px rounded flex-shrink-0"
+        style={{ backgroundColor: color + "18", color, fontSize: "9px", minWidth: "32px", textAlign: "center" }}
+      >
+        {icon}
+      </span>
+      <span className="text-xs font-mono truncate flex-1" style={{ color: "var(--text-dim)" }}>{label}</span>
+      <span className="text-xs font-mono flex-shrink-0" style={{ color: "var(--text-faint)", fontSize: "10px" }}>{desc}</span>
+    </div>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function StemGeneratorPage() {
@@ -462,6 +480,57 @@ export default function StemGeneratorPage() {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<FullPipelineResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [packBuilding, setPackBuilding] = useState(false);
+  const [packReady, setPackReady] = useState<{ filename: string; sizeBytes: number; contents: string[] } | null>(null);
+  const [packError, setPackError] = useState<string | null>(null);
+
+  const buildPack = async () => {
+    if (!result) return;
+    setPackBuilding(true);
+    setPackError(null);
+    setPackReady(null);
+    try {
+      const res = await fetch("/api/music/build-ableton-pack", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pipeline: result,
+          variant,
+          bpm: VARIANT_INFO[variant].bpm,
+          bars,
+          key: VARIANT_INFO[variant].key,
+        }),
+      });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error ?? "Pack build failed");
+      }
+      const filename = res.headers.get("content-disposition")?.match(/filename="([^"]+)"/)?.[1] ?? "DARKSCO_Pack.zip";
+      const sizeBytes = Number(res.headers.get("x-pack-size-bytes") ?? 0);
+      const fileCount = Number(res.headers.get("x-pack-file-count") ?? 0);
+      const blob = await res.blob();
+      // Trigger download
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      // Build a representative contents list
+      const contents: string[] = [
+        `${filename.replace(".zip", ".als")} — Ableton Live 11/12 project`,
+        ...result.samplepack.stems.map((s) => `Samples/Originals/${s.stem_type}.wav`),
+        `Samples/Originals/master_mix.wav`,
+        ...result.midis.map((m) => `MIDI Clips/${m.filename}`),
+        `Max for Live Devices/DARKSCO_Sampler.amxd`,
+        `README.txt`,
+      ];
+      setPackReady({ filename, sizeBytes, contents });
+    } catch (e) {
+      setPackError(String(e));
+    } finally {
+      setPackBuilding(false);
+    }
+  };
 
   const generate = async () => {
     setLoading(true);
@@ -491,7 +560,10 @@ export default function StemGeneratorPage() {
     }
   };
 
-  const stagesCompleted = result?.meta.pipeline_stages_completed ?? [];
+  const stagesCompleted = [
+    ...(result?.meta.pipeline_stages_completed ?? []),
+    ...(packReady ? ["ableton_pack"] : []),
+  ];
   const variantColor = VARIANT_INFO[variant].color;
 
   return (
@@ -898,6 +970,146 @@ export default function StemGeneratorPage() {
             {/* ── STAGE 5: Final WAV Master ─────────────────────────────────── */}
             <SectionDivider title="Stage 5 — Final WAV Master" />
             <MasterWavCard wav={result.final_wav} />
+
+            {/* ── ABLETON LIVE PACK EXPORT ──────────────────────────────────── */}
+            <SectionDivider title="Export — Ableton Live Pack" />
+
+            <div className="rounded-xl border overflow-hidden" style={{ borderColor: "var(--brand)" + "30", backgroundColor: "var(--card)" }}>
+              {/* Pack header */}
+              <div className="flex items-start justify-between gap-4 p-5" style={{ borderBottom: "1px solid var(--border)" }}>
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className="text-xs font-mono font-semibold uppercase tracking-widest px-2 py-0.5 rounded"
+                      style={{ backgroundColor: "var(--brand)" + "18", color: "var(--brand)" }}
+                    >
+                      .zip
+                    </span>
+                    <span className="text-sm font-semibold">
+                      DARKSCO_{variant.charAt(0).toUpperCase() + variant.slice(1)}_{VARIANT_INFO[variant].bpm}bpm
+                    </span>
+                  </div>
+                  <p className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>
+                    Ableton Live 11/12 project · WAV stems · MIDI clips · Max for Live device
+                  </p>
+                </div>
+                <button
+                  onClick={buildPack}
+                  disabled={packBuilding}
+                  className="flex-shrink-0 px-5 py-2.5 rounded-lg border text-sm font-semibold font-mono transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{
+                    borderColor: "var(--brand)",
+                    backgroundColor: packBuilding ? "transparent" : "var(--brand)" + "15",
+                    color: "var(--brand)",
+                  }}
+                >
+                  {packBuilding ? "Building pack..." : packReady ? "Re-download Pack" : "Export Ableton Pack"}
+                </button>
+              </div>
+
+              {/* Pack contents manifest */}
+              <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* Left: file tree */}
+                <div>
+                  <p className="text-xs font-mono uppercase tracking-wider mb-3" style={{ color: "var(--text-faint)" }}>Pack contents</p>
+                  <div className="flex flex-col gap-1">
+                    {/* ALS */}
+                    <PackFileRow icon=".als" label={`DARKSCO_${variant.charAt(0).toUpperCase() + variant.slice(1)}_${VARIANT_INFO[variant].bpm}bpm.als`} desc="Ableton Live 11/12 set" color="var(--brand)" />
+                    {/* WAV stems */}
+                    {result.samplepack.stems.map((s) => (
+                      <PackFileRow key={s.stem_type} icon=".wav" label={`Samples/Originals/${s.stem_type}.wav`} desc={`${s.durationSec.toFixed(2)}s · 48kHz/24-bit`} color={STEM_COLORS[s.stem_type] ?? "#6b6b76"} />
+                    ))}
+                    <PackFileRow icon=".wav" label="Samples/Originals/master_mix.wav" desc={`${result.final_wav.durationSec.toFixed(2)}s · stereo master`} color="var(--text-dim)" />
+                    {/* MIDI */}
+                    {result.midis.map((m) => (
+                      <PackFileRow key={m.stem} icon=".mid" label={`MIDI Clips/${m.filename}`} desc={`${m.notes_count} notes · Ch ${m.channel}`} color={STEM_COLORS[m.stem] ?? "#6b6b76"} />
+                    ))}
+                    {/* M4L */}
+                    <PackFileRow icon=".amxd" label="Max for Live Devices/DARKSCO_Sampler.amxd" desc="MIDI router + stem map" color="#e8a23c" />
+                    <PackFileRow icon=".txt"  label="README.txt" desc="Project info + routing notes" color="var(--text-faint)" />
+                  </div>
+                </div>
+
+                {/* Right: technical specs */}
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <p className="text-xs font-mono uppercase tracking-wider mb-2" style={{ color: "var(--text-faint)" }}>Live Set tracks</p>
+                    <div className="flex flex-col gap-1.5">
+                      {result.samplepack.stems.filter((s) => ["kick","snare","hihat","noise"].includes(s.stem_type)).map((s) => (
+                        <div key={s.stem_type} className="flex items-center gap-2">
+                          <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: "var(--surface-raised)", color: "var(--text-faint)" }}>AudioTrack</span>
+                          <span className="text-xs font-mono" style={{ color: STEM_COLORS[s.stem_type] ?? "#6b6b76" }}>{s.stem_type}</span>
+                          <span className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>clip with WAV reference</span>
+                        </div>
+                      ))}
+                      {result.samplepack.stems.filter((s) => !["kick","snare","hihat","noise"].includes(s.stem_type)).map((s) => (
+                        <div key={s.stem_type} className="flex items-center gap-2">
+                          <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: "var(--surface-raised)", color: "var(--text-faint)" }}>MidiTrack</span>
+                          <span className="text-xs font-mono" style={{ color: STEM_COLORS[s.stem_type] ?? "#6b6b76" }}>{s.stem_type}</span>
+                          <span className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>Simpler loaded with WAV</span>
+                        </div>
+                      ))}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: "var(--surface-raised)", color: "var(--text-faint)" }}>AudioTrack</span>
+                        <span className="text-xs font-mono" style={{ color: "var(--text-dim)" }}>Master Mix</span>
+                        <span className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>reference only</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-mono uppercase tracking-wider mb-2" style={{ color: "var(--text-faint)" }}>Set parameters</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { label: "BPM", value: String(VARIANT_INFO[variant].bpm) },
+                        { label: "Key", value: VARIANT_INFO[variant].key },
+                        { label: "Bars", value: String(bars) },
+                        { label: "Format", value: "Live 11/12" },
+                        { label: "MIDI PPQ", value: "480" },
+                        { label: "Sample rate", value: "48kHz/24-bit" },
+                      ].map((row) => (
+                        <div key={row.label} className="rounded px-2.5 py-1.5" style={{ backgroundColor: "var(--surface-raised)" }}>
+                          <p className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>{row.label}</p>
+                          <p className="text-xs font-mono font-semibold mt-0.5" style={{ color: "var(--foreground)" }}>{row.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-mono uppercase tracking-wider mb-2" style={{ color: "var(--text-faint)" }}>Max for Live device</p>
+                    <div className="rounded-lg border p-3 text-xs font-mono" style={{ borderColor: "#e8a23c" + "30", backgroundColor: "#e8a23c" + "07" }}>
+                      <p className="font-semibold mb-1" style={{ color: "#e8a23c" }}>DARKSCO_Sampler.amxd</p>
+                      <p style={{ color: "var(--text-faint)" }}>MIDI router + stem-to-channel map.</p>
+                      <p style={{ color: "var(--text-faint)" }}>Shows kit name, BPM, key, and all stem note ranges.</p>
+                      <p className="mt-1" style={{ color: "var(--text-faint)" }}>Drag onto any MIDI track in Ableton Live with M4L.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Build result / error */}
+              {packReady && (
+                <div className="px-5 pb-5">
+                  <div
+                    className="flex items-center gap-3 rounded-lg px-4 py-3"
+                    style={{ backgroundColor: "var(--brand)" + "10", border: `1px solid ${"var(--brand)"}30` }}
+                  >
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: "var(--brand)" }} />
+                    <span className="text-xs font-mono" style={{ color: "var(--brand)" }}>
+                      {packReady.filename} downloaded — {fmtBytes(packReady.sizeBytes)} · {packReady.contents.length} files
+                    </span>
+                  </div>
+                </div>
+              )}
+              {packError && (
+                <div className="px-5 pb-5">
+                  <div className="rounded-lg px-4 py-3 border" style={{ borderColor: "var(--destructive)" + "40", backgroundColor: "var(--destructive)" + "0a" }}>
+                    <p className="text-xs font-mono" style={{ color: "var(--destructive)" }}>{packError}</p>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Pipeline complete badge */}
             <div className="flex items-center justify-center gap-3 mt-6 py-4 rounded-lg border" style={{ borderColor: "var(--brand)" + "30", backgroundColor: "var(--brand)" + "07" }}>
