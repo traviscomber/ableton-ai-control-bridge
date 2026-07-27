@@ -8,34 +8,18 @@ import { fetchHealth } from "@/lib/bridge-client";
 import type { BridgeHealth } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-function makeMockHealth(): BridgeHealth {
-  return {
-    ok: true,
-    version: "0.4.2",
-    dry_run: false,
-    approval_required: true,
-    authentication_required: true,
-    allowed_commands: [
-      "set_tempo", "launch_scene", "stop_all_clips", "set_track_volume",
-      "set_track_pan", "set_macro", "create_midi_clip", "create_audio_track",
-      "create_midi_track", "arm_track", "start_playback", "stop_playback",
-      "set_time_signature", "set_metronome",
-    ],
-    udp_target: "127.0.0.1:9001",
-    ack_listener: "127.0.0.1:9002",
-    max_receiver_seen: true,
-    last_ack_at: new Date(Date.now() - 45000).toISOString(),
-  };
-}
-
 const QUICK_COMMANDS = [
   {
-    label: "Start bridge (with approval)",
-    cmd: 'python -m ableton_bridge.server --token "change-this-token" --require-approval',
+    label: "Start bridge",
+    cmd: "python -m ableton_bridge",
   },
   {
-    label: "Dry-run mode",
-    cmd: "python -m ableton_bridge.server --dry-run",
+    label: "Start with approval mode",
+    cmd: "python -m ableton_bridge --require-approval",
+  },
+  {
+    label: "Dry-run mode (no Ableton needed)",
+    cmd: "python -m ableton_bridge --dry-run",
   },
   {
     label: "Check health",
@@ -49,8 +33,7 @@ const QUICK_COMMANDS = [
   },
   {
     label: "Get pending commands",
-    cmd: `curl http://127.0.0.1:8765/api/commands?status=pending \\
-  -H "X-Bridge-Token: your-token"`,
+    cmd: "curl http://127.0.0.1:8765/api/commands?status=pending",
   },
 ];
 
@@ -58,7 +41,6 @@ export default function HealthPage() {
   // Start null on SSR; mock data loaded client-side only in useEffect
   const [health, setHealth] = useState<BridgeHealth | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
-  const [isMockMode, setIsMockMode] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -68,10 +50,9 @@ export default function HealthPage() {
       const h = await fetchHealth();
       setHealth(h);
       setHealthError(null);
-      setIsMockMode(false);
-    } catch {
-      setHealthError("Cannot reach bridge at http://127.0.0.1:8765");
-      setHealth(makeMockHealth());
+    } catch (err) {
+      setHealth(null);
+      setHealthError(err instanceof Error ? err.message : "Cannot reach bridge at 127.0.0.1:8765");
     }
   }, []);
 
@@ -102,11 +83,6 @@ export default function HealthPage() {
         subtitle="Server status, UDP transport, and ACK monitoring"
         right={
           <div className="flex items-center gap-2">
-            {isMockMode && (
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded border border-[#f5a623]/30 text-[#f5a623] bg-[#f5a623]/10">
-                DEMO
-              </span>
-            )}
             <button
               onClick={refresh}
               disabled={isRefreshing}

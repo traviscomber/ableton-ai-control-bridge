@@ -38,7 +38,7 @@ export function HealthStatus({ health, error, compact }: HealthStatusProps) {
         </div>
         <p className="mt-1.5 text-xs text-muted-foreground font-mono">{error}</p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Start the bridge: <span className="font-mono text-text-dim">python -m ableton_bridge.server --token &lt;your-token&gt;</span>
+          Start the bridge: <span className="font-mono text-[#4dffa0]">python -m ableton_bridge</span>
         </p>
       </div>
     );
