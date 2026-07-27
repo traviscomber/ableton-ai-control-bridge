@@ -109,7 +109,7 @@ class BridgeState:
 
 def make_handler(state: BridgeState) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
-        server_version = "AbletonAIControlBridge/0.2"
+        server_version = "AbletonAIControlBridge/0.4.3"
 
         def do_GET(self) -> None:
             parsed = urlparse(self.path)
@@ -119,7 +119,7 @@ def make_handler(state: BridgeState) -> type[BaseHTTPRequestHandler]:
             if parsed.path == "/health":
                 self._send_json(200, {
                     "ok": True,
-                    "version": "0.4.2",
+                    "version": "0.4.3",
                     "dry_run": state.dry_run,
                     "approval_required": state.require_approval,
                     "authentication_required": bool(state.policy.token),
@@ -128,6 +128,7 @@ def make_handler(state: BridgeState) -> type[BaseHTTPRequestHandler]:
                     "ack_listener": f"{state.ack_host}:{state.ack_port}",
                     "max_receiver_seen": state.last_ack_at is not None,
                     "last_ack_at": state.last_ack_at,
+                    "private_network_access": True,
                 })
                 return
             if parsed.path == "/api/commands":
@@ -199,19 +200,21 @@ def make_handler(state: BridgeState) -> type[BaseHTTPRequestHandler]:
             return payload
 
         def do_OPTIONS(self) -> None:
-            """Handle CORS preflight — must respond before any auth check."""
+            """Handle CORS and Chrome Private Network Access preflight."""
             self.send_response(204)
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.send_header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
-            self.send_header("Access-Control-Allow-Headers", "Content-Type,X-Bridge-Token,Authorization")
+            self._cors_headers()
             self.send_header("Access-Control-Max-Age", "86400")
             self.send_header("Content-Length", "0")
             self.end_headers()
 
         def _cors_headers(self) -> None:
-            self.send_header("Access-Control-Allow-Origin", "*")
+            origin = self.headers.get("Origin") or "*"
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
             self.send_header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
             self.send_header("Access-Control-Allow-Headers", "Content-Type,X-Bridge-Token,Authorization")
+            self.send_header("Access-Control-Allow-Private-Network", "true")
+            self.send_header("Cross-Origin-Resource-Policy", "cross-origin")
 
         def _send_json(self, status: int, payload: dict[str, Any]) -> None:
             body = json.dumps(payload, indent=2).encode("utf-8")
@@ -258,7 +261,6 @@ def build_parser(defaults: dict[str, Any] | None = None) -> argparse.ArgumentPar
 
 def load_config(path: str) -> dict[str, Any]:
     try:
-        # utf-8-sig accepts the BOM written by Windows PowerShell 5.1.
         defaults = json.loads(Path(path).read_text(encoding="utf-8-sig"))
     except (OSError, json.JSONDecodeError) as exc:
         raise ValueError(f"Cannot load config file: {exc}") from exc
@@ -298,7 +300,7 @@ def main() -> None:
     if not args.dry_run:
         threading.Thread(target=state.receive_acknowledgements, daemon=True).start()
     server = ThreadingHTTPServer((args.host, args.port), make_handler(state))
-    print(f"Ableton AI Control Bridge v0.4.2 listening on http://{args.host}:{args.port}")
+    print(f"Ableton AI Control Bridge v0.4.3 listening on http://{args.host}:{args.port}")
     print(f"UDP target={args.udp_host}:{args.udp_port} ack={args.ack_host}:{args.ack_port}")
     print(f"dry_run={args.dry_run} approval={args.require_approval} auth={bool(args.token)}")
     server.serve_forever()
