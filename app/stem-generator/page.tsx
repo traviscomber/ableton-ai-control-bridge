@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import type { FullPipelineResponse, SamplepPackStem, MidiFile } from "@/app/api/music/generate-stems/route";
+import type { FullPipelineResponse, SamplepPackStem, MidiFile, SampleHit, StemSampleGroup } from "@/app/api/music/generate-stems/route";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -454,6 +454,175 @@ function MasterWavCard({ wav }: { wav: FullPipelineResponse["final_wav"] }) {
   );
 }
 
+// ─── Sample hit row — one-shot WAV + single-note MIDI ────────────────────────
+
+function SampleHitRow({ hit, color }: { hit: SampleHit; color: string }) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playing, setPlaying] = useState(false);
+
+  const playWav = useCallback(() => {
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    const bytes = Uint8Array.from(atob(hit.wav_b64), (c) => c.charCodeAt(0));
+    const url = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
+    const audio = new Audio(url);
+    audioRef.current = audio;
+    audio.onended = () => { setPlaying(false); URL.revokeObjectURL(url); };
+    audio.onpause = () => setPlaying(false);
+    setPlaying(true);
+    audio.play();
+  }, [hit]);
+
+  const downloadWav = useCallback(() => {
+    const bytes = Uint8Array.from(atob(hit.wav_b64), (c) => c.charCodeAt(0));
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
+    a.download = `${hit.name}.wav`;
+    a.click();
+  }, [hit]);
+
+  const downloadMid = useCallback(() => {
+    const bytes = Uint8Array.from(atob(hit.midi_b64), (c) => c.charCodeAt(0));
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([bytes], { type: "audio/midi" }));
+    a.download = `${hit.name}.mid`;
+    a.click();
+  }, [hit]);
+
+  return (
+    <div
+      className="flex items-center gap-2 px-3 py-2 rounded-lg"
+      style={{ backgroundColor: playing ? color + "12" : "var(--surface-raised)", border: `1px solid ${playing ? color + "40" : "var(--border)"}` }}
+    >
+      {/* Note badge */}
+      <span
+        className="text-xs font-mono font-semibold w-8 text-center flex-shrink-0 rounded px-1"
+        style={{ backgroundColor: color + "18", color }}
+      >
+        {hit.note_name}
+      </span>
+
+      {/* MIDI note number */}
+      <span className="text-xs font-mono w-6 text-center flex-shrink-0" style={{ color: "var(--text-faint)" }}>
+        {hit.midi_note}
+      </span>
+
+      {/* Velocity label (drums) or spacer (melodic) */}
+      {hit.velocity_label !== "medium" || hit.stem === "kick" || hit.stem === "snare" || hit.stem === "hihat" ? (
+        <span
+          className="text-xs font-mono px-1.5 py-px rounded flex-shrink-0"
+          style={{
+            backgroundColor:
+              hit.velocity_label === "hard" ? color + "25" :
+              hit.velocity_label === "medium" ? "var(--surface-overlay)" :
+              "var(--surface-raised)",
+            color: hit.velocity_label === "hard" ? color : "var(--text-faint)",
+            fontSize: "9px",
+          }}
+        >
+          {hit.velocity_label} v{hit.velocity}
+        </span>
+      ) : (
+        <span className="flex-shrink-0 w-16" />
+      )}
+
+      {/* Duration */}
+      <span className="text-xs font-mono flex-1" style={{ color: "var(--text-faint)" }}>
+        {hit.duration_ms}ms
+      </span>
+
+      {/* Size */}
+      <span className="text-xs font-mono w-12 text-right flex-shrink-0" style={{ color: "var(--text-faint)" }}>
+        {fmtBytes(hit.size_bytes)}
+      </span>
+
+      {/* Actions */}
+      <div className="flex gap-1 flex-shrink-0">
+        <button
+          onClick={playWav}
+          className="h-6 px-2 rounded text-xs font-mono transition-colors"
+          style={{
+            backgroundColor: playing ? color + "25" : "var(--card)",
+            color: playing ? color : "var(--text-dim)",
+            border: `1px solid ${playing ? color + "60" : "var(--border)"}`,
+          }}
+        >
+          {playing ? "■" : "▶"}
+        </button>
+        <button
+          onClick={downloadWav}
+          className="h-6 px-2 rounded text-xs font-mono transition-colors"
+          style={{ backgroundColor: "var(--card)", color: "var(--text-faint)", border: "1px solid var(--border)" }}
+          title="Download WAV"
+        >
+          .wav
+        </button>
+        <button
+          onClick={downloadMid}
+          className="h-6 px-2 rounded text-xs font-mono transition-colors"
+          style={{ backgroundColor: "var(--card)", color: "var(--text-faint)", border: "1px solid var(--border)" }}
+          title="Download MIDI"
+        >
+          .mid
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Sample group panel — one instrument's full sample map ────────────────────
+
+function SampleGroupPanel({ group }: { group: StemSampleGroup }) {
+  const color = STEM_COLORS[group.stem] ?? "#6b6b76";
+  const [open, setOpen] = useState(false);
+  const totalSamples = group.samples.length;
+  const totalBytes = group.samples.reduce((a, s) => a + s.size_bytes, 0);
+
+  return (
+    <div className="rounded-xl border overflow-hidden" style={{ borderColor: color + "30" }}>
+      {/* Header — collapsible */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors"
+        style={{ backgroundColor: open ? color + "0d" : "var(--card)" }}
+      >
+        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+        <span className="text-xs font-mono font-bold uppercase tracking-widest flex-1" style={{ color }}>
+          {group.stem}
+        </span>
+        <span className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>
+          {group.category === "drum"
+            ? `${totalSamples} hits · 3 velocity layers`
+            : `${totalSamples} notes · chromatic range`}
+        </span>
+        <span className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>
+          {fmtBytes(totalBytes)}
+        </span>
+        <span className="text-xs font-mono ml-2" style={{ color: "var(--text-faint)" }}>
+          {open ? "▲" : "▼"}
+        </span>
+      </button>
+
+      {/* Sample list */}
+      {open && (
+        <div className="border-t p-3 flex flex-col gap-1" style={{ borderColor: color + "20", backgroundColor: color + "04" }}>
+          {/* Column header */}
+          <div className="flex items-center gap-2 px-3 pb-1 mb-1 border-b" style={{ borderColor: "var(--border)" }}>
+            <span className="text-xs font-mono w-8 text-center flex-shrink-0" style={{ color: "var(--text-faint)", fontSize: "9px" }}>NOTE</span>
+            <span className="text-xs font-mono w-6 text-center flex-shrink-0" style={{ color: "var(--text-faint)", fontSize: "9px" }}>MIDI</span>
+            <span className="text-xs font-mono flex-shrink-0 w-20" style={{ color: "var(--text-faint)", fontSize: "9px" }}>VELOCITY</span>
+            <span className="text-xs font-mono flex-1" style={{ color: "var(--text-faint)", fontSize: "9px" }}>DUR</span>
+            <span className="text-xs font-mono w-12 text-right flex-shrink-0" style={{ color: "var(--text-faint)", fontSize: "9px" }}>SIZE</span>
+            <span className="text-xs font-mono flex-shrink-0 w-28 text-right" style={{ color: "var(--text-faint)", fontSize: "9px" }}>ACTIONS</span>
+          </div>
+          {group.samples.map((hit) => (
+            <SampleHitRow key={hit.name} hit={hit} color={color} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Pack file row ─────────────────────────────────────────────────────────────
 
 function PackFileRow({ icon, label, desc, color }: { icon: string; label: string; desc: string; color: string }) {
@@ -860,6 +1029,68 @@ export default function StemGeneratorPage() {
                 );
               })}
             </div>
+
+            {/* ── SAMPLES sub-section — one-shot WAV + MIDI per note ──────── */}
+            {result.samplepack.sample_groups?.length > 0 && (
+              <>
+                <div className="flex items-center justify-between mt-6 mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-px flex-1 bg-border w-12" />
+                    <span className="text-xs font-mono font-semibold uppercase tracking-widest" style={{ color: "var(--text-faint)" }}>
+                      One-shot Samples
+                    </span>
+                    <div className="h-px flex-1 bg-border w-12" />
+                  </div>
+                  <div className="flex items-center gap-3 ml-4">
+                    <span className="text-xs font-mono" style={{ color: "var(--text-faint)" }}>
+                      {result.samplepack.total_samples} samples · {fmtBytes(result.samplepack.total_sample_bytes)}
+                    </span>
+                    <button
+                      onClick={() => {
+                        result.samplepack.sample_groups.forEach((g) =>
+                          g.samples.forEach((s) => {
+                            const bytes = Uint8Array.from(atob(s.wav_b64), (c) => c.charCodeAt(0));
+                            const a = document.createElement("a");
+                            a.href = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
+                            a.download = `${s.name}.wav`;
+                            a.click();
+                          })
+                        );
+                      }}
+                      className="text-xs font-mono px-2.5 py-1 rounded transition-colors"
+                      style={{ backgroundColor: "var(--surface-raised)", color: "var(--text-dim)", border: "1px solid var(--border)" }}
+                    >
+                      ↓ All Samples WAV
+                    </button>
+                    <button
+                      onClick={() => {
+                        result.samplepack.sample_groups.forEach((g) =>
+                          g.samples.forEach((s) => {
+                            const bytes = Uint8Array.from(atob(s.midi_b64), (c) => c.charCodeAt(0));
+                            const a = document.createElement("a");
+                            a.href = URL.createObjectURL(new Blob([bytes], { type: "audio/midi" }));
+                            a.download = `${s.name}.mid`;
+                            a.click();
+                          })
+                        );
+                      }}
+                      className="text-xs font-mono px-2.5 py-1 rounded transition-colors"
+                      style={{ backgroundColor: "var(--surface-raised)", color: "var(--text-dim)", border: "1px solid var(--border)" }}
+                    >
+                      ↓ All Samples MIDI
+                    </button>
+                  </div>
+                </div>
+                <p className="text-xs font-mono mb-3" style={{ color: "var(--text-faint)" }}>
+                  Click any row to expand — each instrument shows every one-shot sample across its full playable range. Each hit includes a 48kHz/24-bit WAV and a matching single-note MIDI file.
+                </p>
+                <div className="flex flex-col gap-2">
+                  {result.samplepack.sample_groups.map((group) => (
+                    <SampleGroupPanel key={group.stem} group={group} />
+                  ))}
+                </div>
+              </>
+            )}
 
             {/* ── STAGE 4: Quality Gates ────────────────────────────────────── */}
             <SectionDivider title="Stage 4 — Quality Gates" />

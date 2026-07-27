@@ -27,7 +27,11 @@ import { encodeWavMono, SAMPLE_RATE } from "@/lib/synth/wav-engine";
 import { composeMidiPerStem } from "@/lib/agents/midi-composer";
 import { executeAudioEngineerAgent } from "@/lib/agents/audio-engineer";
 import { executeComplianceCheckerAgent } from "@/lib/agents/compliance-checker";
+import { renderSamplePack } from "@/lib/synth/sample-synth";
+import type { StemSampleGroup } from "@/lib/synth/sample-synth";
 import type { StemChannel } from "@/lib/synth/mastering";
+
+export type { StemSampleGroup };
 
 // ─── DARKSCO Variant Presets ─────────────────────────────────────────────────
 
@@ -182,6 +186,19 @@ function makeNotes(
 
 // ─── Response Types ───────────────────────────────────────────────────────────
 
+export interface SampleHit {
+  stem:           string;
+  name:           string;
+  note_name:      string;
+  midi_note:      number;
+  velocity:       number;
+  velocity_label: "soft" | "medium" | "hard";
+  wav_b64:        string;
+  midi_b64:       string;
+  duration_ms:    number;
+  size_bytes:     number;
+}
+
 export interface SamplepPackStem {
   name: string;
   stem_type: string;
@@ -216,12 +233,16 @@ export interface FullPipelineResponse {
     energy_curve: string;
     reasoning_used: "openai" | "fallback";
   };
-  // Stage 2
+  // Stage 2 — Samplepack
   samplepack: {
-    stems: SamplepPackStem[];
-    total_stems: number;
-    total_size_bytes: number;
-    format: string;
+    stems:              SamplepPackStem[];
+    total_stems:        number;
+    total_size_bytes:   number;
+    format:             string;
+    // Individual one-shot samples grouped by stem
+    sample_groups:      StemSampleGroup[];
+    total_samples:      number;
+    total_sample_bytes: number;
   };
   // Stage 3
   midis: MidiFile[];
@@ -386,6 +407,22 @@ export async function POST(req: NextRequest) {
     }
     stagesCompleted.push("samplepack");
 
+    // ── STAGE 2b: One-shot samples (samplepack) ──────────────────────────────
+    const sampleGroups = renderSamplePack({
+      bpm,
+      kickParams:  preset.kickParams,
+      snareParams: preset.snareParams,
+      hihatParams: preset.hihatParams,
+      bassParams:  preset.bassParams,
+      padParams:   { filterHz: preset.padParams?.filterHz, detuneCents: preset.padParams?.detuneCents },
+      stabParams:  { filterHz: preset.stabParams?.filterHz, filterQ: preset.stabParams?.filterQ, drive: preset.stabParams?.drive },
+      requestedStems,
+    });
+    const totalSampleBytes = sampleGroups.reduce(
+      (acc, g) => acc + g.samples.reduce((a, s) => a + s.size_bytes, 0), 0
+    );
+    const totalSampleCount = sampleGroups.reduce((acc, g) => acc + g.samples.length, 0);
+
     // ── STAGE 3: MIDI per stem ───────────────────────────────────────────────
     let midis: MidiFile[] = [];
     if (includeMidi) {
@@ -484,9 +521,12 @@ export async function POST(req: NextRequest) {
       structure,
       samplepack: {
         stems,
-        total_stems: stems.length,
-        total_size_bytes: stems.reduce((s, r) => s + r.sizeBytes, 0),
-        format: "48kHz / 24-bit WAV",
+        total_stems:        stems.length,
+        total_size_bytes:   stems.reduce((s, r) => s + r.sizeBytes, 0),
+        format:             "48kHz / 24-bit WAV",
+        sample_groups:      sampleGroups,
+        total_samples:      totalSampleCount,
+        total_sample_bytes: totalSampleBytes,
       },
       midis,
       quality_gates: {
