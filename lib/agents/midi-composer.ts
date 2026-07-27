@@ -24,6 +24,8 @@ import {
   type MidiNote,
 } from "@/lib/synth/midi-encoder";
 
+export type { MidiNote };
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface MusicStructure {
@@ -272,6 +274,73 @@ function makeArpMidi(
     }
   }
   return notes;
+}
+
+// ─── Legacy compat types (used by music-production page + midi-preview) ──────
+
+export interface AbletonInstructions {
+  project_name: string;
+  tempo: number;
+  time_signature: string;
+  routing_notes: string;
+  clip_notes: string[];
+  export_settings: {
+    sample_rate: number;
+    bit_depth: number;
+    format: string;
+    normalize: boolean;
+  };
+}
+
+/** Legacy shim for generate-midi/route.ts */
+export async function executeMidiComposerAgent(input: {
+  production_id: string;
+  structure: MusicStructure;
+  bpm: number;
+  key: string;
+  total_bars: number;
+}): Promise<{
+  tracks: Array<{ production_id: string; track_type: string; track_number: number; channel: number; notes: MidiNote[] }>;
+  metadata: { tempo: number; total_bars: number; total_beats: number; quantization: string; time_signature: string; tracks: Array<{ name: string; channel: number; notes_count: number }>; generation_method: string };
+  ableton_instructions: AbletonInstructions;
+  error?: string;
+}> {
+  const stems = composeMidiPerStem({
+    structure: input.structure,
+    bpm: input.bpm,
+    bars: input.total_bars,
+    variant: "production",
+    key: input.key,
+  });
+
+  const tracks = stems.map((s, i) => ({
+    production_id: input.production_id,
+    track_type: s.stem,
+    track_number: i + 1,
+    channel: s.channel,
+    notes: [] as MidiNote[], // MIDI data is base64 encoded in midi_b64
+  }));
+
+  const metadata = {
+    tempo: input.bpm,
+    total_bars: input.total_bars,
+    total_beats: input.total_bars * 4,
+    quantization: "16th",
+    time_signature: "4/4",
+    tracks: stems.map((s) => ({ name: s.stem, channel: s.channel, notes_count: s.notes_count })),
+    generation_method: "DARKSCO MidiComposer — pure TypeScript MIDI synthesis, 16th-note grid",
+  };
+
+  const ableton_instructions: AbletonInstructions = {
+    project_name: `DARKSCO_${input.key}_${input.bpm}bpm_${Date.now()}`,
+    tempo: input.bpm,
+    time_signature: "4/4",
+    routing_notes: "Import each MIDI file to its corresponding Ableton track. Match track names to stem audio files from the samplepack.",
+    clip_notes: stems.map((s) => `${s.stem}.mid → ${s.description}`),
+    export_settings: { sample_rate: 48000, bit_depth: 24, format: "wav", normalize: false },
+  };
+
+  return { tracks, metadata, ableton_instructions };
 }
 
 // ─── Main composer ───────────────────────────────────────────────────────────

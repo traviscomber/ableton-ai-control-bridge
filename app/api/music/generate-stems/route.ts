@@ -295,9 +295,23 @@ export async function POST(req: NextRequest) {
     const includeMidi: boolean = body.includeMidi ?? true;
 
     // ── STAGE 1: Music Structure ─────────────────────────────────────────────
-    const structure = {
-      ...preset.structure,
-      reasoning_used: "fallback" as const,
+    const structure: FullPipelineResponse["structure"] = {
+      sections: preset.structure.sections.map(s => ({ ...s, elements: [...s.elements] })),
+      chords: preset.structure.chords.map(c => ({ ...c })),
+      drum_pattern: {
+        kick: [...preset.structure.drum_pattern.kick],
+        snare: [...preset.structure.drum_pattern.snare],
+        hihat: [...preset.structure.drum_pattern.hihat],
+        open_hihat: [...preset.structure.drum_pattern.open_hihat],
+        perc: [...preset.structure.drum_pattern.perc],
+        description: preset.structure.drum_pattern.description,
+      },
+      bass_movement: preset.structure.bass_movement,
+      synthesis_notes: preset.structure.synthesis_notes,
+      production_tips: [...preset.structure.production_tips],
+      arrangement_arc: preset.structure.arrangement_arc,
+      energy_curve: preset.structure.energy_curve,
+      reasoning_used: "fallback",
     };
     stagesCompleted.push("structure");
 
@@ -484,7 +498,7 @@ export async function POST(req: NextRequest) {
           ),
           headroom_db: aeResult.wav_export_spec.headroom_db,
           frequency_balance: aeResult.mixing_report.frequency_analysis,
-          dynamic_range_db: aeResult.arrangement_data?.dynamic_range ?? 12,
+          dynamic_range_db: Math.round(Math.abs(aeResult.wav_export_spec.headroom_db) + 6),
           findings: aeResult.issues.map(i => `[${i.severity.toUpperCase()}] ${i.message}`),
           mixing_recommendations: aeResult.mixing_report.stem_balance.slice(0, 6).map(sb => ({
             stem: sb.name,

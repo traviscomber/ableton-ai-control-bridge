@@ -94,7 +94,7 @@ export function MidiPreview({ metadata, ableton, wavSpec }: MidiPreviewProps) {
       <div>
         <h4 className="text-xs font-mono text-text-faint uppercase tracking-widest mb-2">Clip Setup Notes</h4>
         <div className="space-y-1.5">
-          {ableton.clip_notes.map((note, i) => (
+          {ableton.clip_notes.map((note: string, i: number) => (
             <div key={i} className="flex gap-2 text-xs">
               <span className="text-brand font-mono shrink-0">{String(i + 1).padStart(2, "0")}</span>
               <span className="text-text-dim leading-relaxed">{note}</span>

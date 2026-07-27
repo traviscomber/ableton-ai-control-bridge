@@ -130,7 +130,7 @@ export async function POST(request: Request) {
       production: updated,
       midi: {
         tracks_generated: midiResult.tracks.length,
-        total_notes: midiResult.tracks.reduce((sum, t) => sum + t.notes.length, 0),
+        total_notes: midiResult.tracks.reduce((sum: number, t: { notes: unknown[] }) => sum + t.notes.length, 0),
         metadata: midiResult.metadata,
         ableton_instructions: midiResult.ableton_instructions,
       },
