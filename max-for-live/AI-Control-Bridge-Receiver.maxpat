@@ -5,6 +5,8 @@
     "classnamespace": "box",
     "rect": [80.0, 80.0, 820.0, 430.0],
     "openinpresentation": 1,
+    "devicename": "AI Control Bridge Receiver",
+    "devicetype": "midifx",
     "boxes": [
       {"box": {"id": "in", "maxclass": "newobj", "text": "udpreceive 9001", "patching_rect": [40.0, 55.0, 120.0, 22.0]}},
       {"box": {"id": "route", "maxclass": "newobj", "text": "route /bridge", "patching_rect": [40.0, 95.0, 90.0, 22.0]}},
