@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Disc3, Clock, Music2 } from "lucide-react";
+import Link from "next/link";
+import { Disc3, Clock, Music2, Zap } from "lucide-react";
 import { TopBar } from "@/components/layout/TopBar";
 import { AgentCard } from "@/components/darksco/AgentCard";
 import { QualityGateTracker } from "@/components/darksco/QualityGateTracker";
@@ -102,6 +103,16 @@ export default function DarkscoPage() {
                 />
               ))}
             </div>
+          </div>
+
+          {/* Pipeline Diagram Link */}
+          <div className="mt-6 mb-4">
+            <Link href="/darksco/pipeline">
+              <button className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium hover:from-indigo-700 hover:to-purple-700 transition-all">
+                <Zap className="w-4 h-4" />
+                View Complete Pipeline Diagram
+              </button>
+            </Link>
           </div>
 
           {/* Workflow diagram */}
