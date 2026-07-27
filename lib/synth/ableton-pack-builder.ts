@@ -157,11 +157,78 @@ function buildMidiNote(pitch: number, time: number, duration: number, velocity: 
                 </KeyTrack>`;
 }
 
-function buildMidiClip(id: number, stemName: string, endBeat: number, rootPitch: number): string {
-  // Simple single-note pattern for the clip (the real MIDI file is in MIDI Clips/)
-  const noteEntries = Array.from({ length: Math.floor(endBeat) }, (_, i) =>
-    buildMidiNote(rootPitch, i, 1, 90, i + 1)
-  ).join("");
+// ─── MIDI Clip Builders (stem-specific patterns) ─────────────────────────────
+// Build different note patterns per stem type:
+// - PAD: Long sustained chords (4 beats per chord) with voice movement
+// - BASS: Single root note, full bar sustain (whole note pattern)
+// - STAB: Short punchy notes (half-beat attack, decay)
+// - ARP: Fast alternating notes for arpeggiator input
+// - DRUMS: Kick/Snare/Hihat as needed
+
+function buildMidiClip(id: number, stemName: string, endBeat: number, rootPitch: number, stemType?: string): string {
+  let noteEntries = "";
+
+  if (stemType === "pad") {
+    // PAD: Sustained chord voicings, 4 beats per chord with voice movement
+    // Create 4-note chord: root, 3rd, 5th, octave
+    // Chord change every 4 bars to create movement
+    const chords = [
+      [0, 4, 7, 12],      // root triad + octave
+      [0, 3, 7, 12],      // minor third voicing (movement)
+      [0, 5, 9, 12],      // sus/5th voicing
+      [0, 4, 8, 12],      // major 6th voicing
+    ];
+
+    let beatPos = 0;
+    let chordIdx = 0;
+    while (beatPos < endBeat) {
+      const chord = chords[chordIdx % chords.length];
+      const chordStartBeat = beatPos;
+      const chordDuration = 4; // 4-bar sustain per chord
+      const chordEndBeat = Math.min(chordStartBeat + chordDuration, endBeat);
+
+      // Add each note in chord
+      let noteId = chordIdx * 100;
+      for (const offset of chord) {
+        noteEntries += buildMidiNote(
+          rootPitch + offset,
+          chordStartBeat,
+          chordEndBeat - chordStartBeat,  // Full chord duration
+          95,                              // Higher velocity for presence
+          noteId++
+        );
+      }
+
+      beatPos = chordEndBeat;
+      chordIdx++;
+    }
+  } else if (stemType === "bass") {
+    // BASS: Root note sustained entire track (whole note pattern)
+    noteEntries = buildMidiNote(rootPitch, 0, endBeat, 100, 1);
+  } else if (stemType === "stab") {
+    // STAB: Short percussive notes (0.125 beats = 32nd note) with velocity curve
+    for (let i = 0; i < Math.floor(endBeat / 0.5); i += 1) {
+      const startBeat = i * 0.5;
+      if (startBeat >= endBeat) break;
+      const vel = 70 + (i % 4) * 8;  // Velocity swing
+      noteEntries += buildMidiNote(rootPitch, startBeat, 0.15, vel, i);
+    }
+  } else if (stemType === "arp") {
+    // ARP: Fast 16th-note pattern for arpeggiator to work with
+    // Create 4-note ascending pattern that repeats
+    const pattern = [0, 4, 7, 12];
+    for (let i = 0; i < Math.floor(endBeat / 0.25); i += 1) {
+      const startBeat = i * 0.25;
+      if (startBeat >= endBeat) break;
+      const noteOffset = pattern[i % pattern.length];
+      noteEntries += buildMidiNote(rootPitch + noteOffset, startBeat, 0.2, 85, i);
+    }
+  } else {
+    // Default: One note per beat (for drums/fallback)
+    for (let i = 0; i < Math.floor(endBeat); i++) {
+      noteEntries += buildMidiNote(rootPitch, i, 1, 90, i + 1);
+    }
+  }
 
   return `
             <MidiClip Id="${id}" Time="0">
@@ -350,7 +417,7 @@ function buildMidiTrackWithZones(
           <ClipSlotList>
             <ClipSlot Id="0">
               <Value>
-                ${buildMidiClip(clipId, label, endBeat, rootPitch)}
+                ${buildMidiClip(clipId, label, endBeat, rootPitch, stem.stem_type)}
               </Value>
               <HasStopButton Value="true" />
               <NeedRefreeze Value="false" />
@@ -417,7 +484,7 @@ function buildMidiTrack(stem: SamplepPackStem, endBeat: number, rootPitch: numbe
 const SCENE_COLORS: Record<string, number> = {
   intro:     57,  // steel blue
   build:     49,  // teal
-  drop:      18,  // deep orange ����� peak energy
+  drop:      18,  // deep orange ������� peak energy
   verse:     40,  // light blue
   chorus:    15,  // warm red
   breakdown: 26,  // purple
@@ -1415,7 +1482,7 @@ function buildMidiTrackFull(
           <IsContentSelectedInDocument Value="false" />
           <ClipSlotList>
             <ClipSlot Id="0">
-              <Value>${buildMidiClip(clipId, label, endBeat, rootPitch)}</Value>
+              <Value>${buildMidiClip(clipId, label, endBeat, rootPitch, "drum")}</Value>
               <HasStopButton Value="true" />
               <NeedRefreeze Value="false" />
             </ClipSlot>
@@ -1968,6 +2035,7 @@ function buildWavetableMidiTrack(
   color: number,
   midiEffectsXml: string = "",
   mixerCfg: Partial<MixerCfg> = {},
+  stemType: string = "pad",
 ): string {
   const trackId = nextId();
   const clipId  = nextId();
@@ -2002,7 +2070,7 @@ function buildWavetableMidiTrack(
           <IsContentSelectedInDocument Value="false" />
           <ClipSlotList>
             <ClipSlot Id="0">
-              <Value>${buildMidiClip(clipId, name + " (WT)", endBeat, rootNote)}</Value>
+              <Value>${buildMidiClip(clipId, name + " (WT)", endBeat, rootNote, stemType)}</Value>
               <HasStopButton Value="true" /><NeedRefreeze Value="false" />
             </ClipSlot>
           </ClipSlotList>
@@ -2327,6 +2395,7 @@ async function buildAlsXml(input: BuildAlsInput): Promise<Buffer> {
         root, endBeat, TRACK_COLORS[stem.stem_type] ?? 40,
         buildScaleMidiEffect(keyRoot, 0, true),  // Scale effect on Wavetable too
         { volume: 0.7, sendAmounts: [sendReverb * 0.8, sendDelay * 0.8] },
+        stem.stem_type,  // Pass stemType for MIDI clip generation
       ));
     } else {
       // Arp gets Arpeggiator MIDI effect instead of Scale
@@ -2335,6 +2404,7 @@ async function buildAlsXml(input: BuildAlsInput): Promise<Buffer> {
         root, endBeat, TRACK_COLORS["arp"] ?? 40,
         buildArpeggiatorMidiEffect(0, 3, 1, true),  // Up mode, 1/8 beat, 1 octave
         { volume: 0.7, sendAmounts: [0.10 * 0.8, 0.30 * 0.8] },
+        "arp",  // Pass stemType for MIDI clip generation
       ));
     }
   }
