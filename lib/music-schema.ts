@@ -127,7 +127,277 @@ export interface SoundbankRelease {
   released_by?: string;
 }
 
+// ─────────────────────────────────────────────
+// Advanced Production Types (OpenAI → MIDI → WAV)
+// ─────────────────────────────────────────────
+
+export interface MusicProduction {
+  id: string;
+  soundbank_id: string;
+  brief: string;
+  style: string;
+  bpm: number;
+  key: string;
+  mood_keywords: string[];
+
+  // Reasoning
+  openai_structure: OpenAIStructure | null;
+  reasoning_tokens: number;
+  reasoning_cost: number;
+
+  // MIDI
+  midi_path: string | null;
+  midi_metadata: MidiMetadata | null;
+
+  // Arrangement
+  arrangement_data: ArrangementData | null;
+
+  // WAV export
+  wav_path: string | null;
+  wav_metadata: WavMetadata | null;
+  loudness_lufs: number | null;
+  headroom_db: number | null;
+
+  // Quality
+  quality_scores: QualityScores | null;
+
+  status: ProductionStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ProductionStatus =
+  | "brief"
+  | "reasoning"
+  | "midi"
+  | "arrangement"
+  | "quality"
+  | "exported";
+
+export interface OpenAIStructure {
+  sections: Array<{
+    name: "intro" | "build" | "verse" | "chorus" | "bridge" | "breakdown" | "outro" | "drop" | "peak";
+    duration_bars: number;
+    elements: string[];
+    dynamics: "minimal" | "moderate" | "intense";
+    notes: string;
+  }>;
+  chords: Array<{
+    bar: number;
+    root: string;
+    quality: string;
+    inversion: number;
+    voicing_notes: string;
+  }>;
+  drum_pattern: {
+    kick: number[];
+    snare: number[];
+    hihat: number[];
+    open_hihat?: number[];
+    perc?: number[];
+    description: string;
+  };
+  bass_movement: string;
+  synthesis_notes: string;
+  production_tips: string[];
+  arrangement_arc: string;
+  energy_curve: string;
+  reference_analysis: string;
+  midi_plan: {
+    tracks: Array<{
+      name: string;
+      instrument: string;
+      range: [string, string];
+      density: "sparse" | "moderate" | "dense";
+      suggested_stems: string[];
+      velocity_range: [number, number];
+      humanization: string;
+    }>;
+  };
+  quality_target: {
+    loudness_lufs: number;
+    dynamic_range: string;
+    frequency_balance: string;
+    mix_reference: string;
+    mastering_chain: string[];
+  };
+  raw_reasoning: string;
+}
+
+export interface MidiMetadata {
+  tempo: number;
+  time_signature: string;
+  total_bars: number;
+  total_beats: number;
+  quantization: string;
+  tracks: Array<{
+    name: string;
+    track_number: number;
+    notes_count: number;
+    duration_beats: number;
+    channel: number;
+  }>;
+  generation_method: string;
+}
+
+export interface ArrangementData {
+  timeline: Array<{
+    bar: number;
+    section: string;
+    active_stems: string[];
+    effects: {
+      eq?: { type: string; freq: number; gain: number }[];
+      compression?: { ratio: number; threshold: number };
+      reverb?: { size: number; wet: number };
+    };
+    notes: string;
+  }>;
+  mixing_chain: {
+    master: {
+      limiter: { ceiling: number };
+      eq_curve: string;
+      loudness_target: number;
+    };
+    stems: Array<{
+      name: string;
+      fader_db: number;
+      pan: number;
+      effects: string[];
+    }>;
+  };
+  ableton_export: {
+    project_name: string;
+    tempo: number;
+    time_signature: string;
+    tracks: string[];
+    notes: string;
+  };
+}
+
+export interface WavMetadata {
+  sample_rate: number;
+  bit_depth: number;
+  channels: number;
+  duration_seconds: number;
+  file_size_bytes: number;
+  loudness_lufs: number;
+  headroom_db: number;
+  platform: string;
+  mastering_chain: string[];
+  export_date: string;
+}
+
+export interface QualityScores {
+  reasoning_coherence: number;
+  midi_accuracy: number;
+  arrangement_integrity: number;
+  audio_engineering: number;
+  compliance: number;
+  venom_final: number;
+  overall: number;
+  gates_passed: number;
+  gates_total: number;
+}
+
+export interface ReasoningLog {
+  id: string;
+  production_id: string;
+  model_used: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  cost_usd: number;
+  duration_ms: number;
+  raw_response: string;
+  parsed_structure: OpenAIStructure | null;
+  created_at: string;
+}
+
+export interface MidiTrack {
+  id: string;
+  production_id: string;
+  track_type: "kick" | "snare" | "hihat" | "bass" | "pad" | "synth" | "arp" | "fx" | "vocal";
+  track_number: number;
+  channel: number;
+  notes: Array<{
+    pitch: number;   // MIDI note 0-127
+    velocity: number;
+    start_beat: number;
+    duration_beats: number;
+  }>;
+  quantization: string;
+  velocity_humanization: number;
+  swing_amount: number;
+  created_at: string;
+}
+
+// ─────────────────────────────────────────────
 // Supabase Table Definitions (SQL)
+// ─────────────────────────────────────────────
+
+export const MUSIC_PRODUCTIONS_SCHEMA = `
+-- Advanced Music Productions (OpenAI Reasoning → MIDI → WAV)
+CREATE TABLE IF NOT EXISTS music_productions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  soundbank_id UUID REFERENCES soundbanks(id) ON DELETE SET NULL,
+  brief TEXT NOT NULL,
+  style TEXT NOT NULL,
+  bpm INTEGER NOT NULL,
+  key TEXT NOT NULL,
+  mood_keywords TEXT[] DEFAULT '{}',
+  openai_structure JSONB,
+  reasoning_tokens INTEGER DEFAULT 0,
+  reasoning_cost DECIMAL(10,6) DEFAULT 0,
+  midi_path TEXT,
+  midi_metadata JSONB,
+  arrangement_data JSONB,
+  wav_path TEXT,
+  wav_metadata JSONB,
+  loudness_lufs DECIMAL(6,2),
+  headroom_db DECIMAL(6,2),
+  quality_scores JSONB,
+  status TEXT DEFAULT 'brief' CHECK (status IN ('brief','reasoning','midi','arrangement','quality','exported')),
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS music_reasoning_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  production_id UUID NOT NULL REFERENCES music_productions(id) ON DELETE CASCADE,
+  model_used TEXT NOT NULL,
+  prompt_tokens INTEGER DEFAULT 0,
+  completion_tokens INTEGER DEFAULT 0,
+  total_tokens INTEGER DEFAULT 0,
+  cost_usd DECIMAL(10,6) DEFAULT 0,
+  duration_ms INTEGER DEFAULT 0,
+  raw_response TEXT,
+  parsed_structure JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS midi_tracks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  production_id UUID NOT NULL REFERENCES music_productions(id) ON DELETE CASCADE,
+  track_type TEXT NOT NULL,
+  track_number INTEGER NOT NULL,
+  channel INTEGER NOT NULL DEFAULT 1,
+  notes JSONB NOT NULL DEFAULT '[]',
+  quantization TEXT DEFAULT '16th',
+  velocity_humanization DECIMAL(4,2) DEFAULT 0.15,
+  swing_amount DECIMAL(4,2) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_productions_soundbank ON music_productions(soundbank_id);
+CREATE INDEX IF NOT EXISTS idx_productions_status ON music_productions(status);
+CREATE INDEX IF NOT EXISTS idx_reasoning_logs_production ON music_reasoning_logs(production_id);
+CREATE INDEX IF NOT EXISTS idx_midi_tracks_production ON midi_tracks(production_id);
+`;
+
+// ─────────────────────────────────────────────
+// Supabase Table Definitions (SQL)
+// ─────────────────────────────────────────────
+
 export const MUSIC_PRODUCTION_SCHEMA = `
 -- Sound Design Profiles
 CREATE TABLE IF NOT EXISTS sound_design_profiles (
