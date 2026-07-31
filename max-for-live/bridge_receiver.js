@@ -185,18 +185,20 @@ function setNormalized(path, normalized) {
 }
 
 function setMacro(c) {
-    var device = api("live_set tracks " + track(c) + " devices 0");
+    var trackIndex = track(c);
+    var devicePath = "live_set tracks " + trackIndex + " devices 0";
+    var device = api(devicePath);
     var count = device.getcount("parameters");
     var target = null;
     var desired = "macro " + integer(c.macro, "macro");
     for (var i = 0; i < count; i++) {
-        var parameter = api("live_set tracks " + c.track + " devices 0 parameters " + i);
+        var parameter = api(devicePath + " parameters " + i);
         if (nameOf(parameter).toLowerCase() === desired) { target = parameter; break; }
     }
     if (!target) throw new Error("Rack macro not found: " + desired);
     var min = Number(scalar(target.get("min"))), max = Number(scalar(target.get("max")));
     target.set("value", min + (max - min) * Number(c.value));
-    return {track: c.track, macro: c.macro, value: c.value};
+    return {track: trackIndex, track_ref: c.track_ref || null, macro: c.macro, value: c.value};
 }
 
 function createTrack(c, method) {
