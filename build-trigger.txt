@@ -1,0 +1,1 @@
+Windows installer build trigger after Python invocation fix.
