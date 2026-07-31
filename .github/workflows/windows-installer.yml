@@ -11,6 +11,8 @@ on:
       - "pyproject.toml"
       - ".github/workflows/windows-installer.yml"
   push:
+    branches:
+      - main
     tags:
       - "v*"
 
