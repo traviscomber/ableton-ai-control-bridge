@@ -12,6 +12,9 @@ Write-Host "Building Ableton AI Control Bridge for Windows..." -ForegroundColor 
 & $Python -m pip install --upgrade pyinstaller
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller installation failed." }
 
+& $Python "windows\patch_live11_notes.py"
+if ($LASTEXITCODE -ne 0) { throw "Live 11 note API patch failed." }
+
 Remove-Item "$Root\build\AbletonAIControlBridge" -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item "$Root\dist\AbletonAIControlBridge" -Recurse -Force -ErrorAction SilentlyContinue
 
