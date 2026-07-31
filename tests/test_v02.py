@@ -74,6 +74,23 @@ class VersionTwoTest(unittest.TestCase):
         self.assertEqual(record["status"], "simulated")
         self.assertEqual(len(state.store.list()), 1)
 
+    def test_native_device_command_uses_remote_script_transport(self):
+        remote = FakeTransport()
+        remote.port = 9003
+        state = self.state(remote_transport=remote)
+        state.submit(
+            {
+                "type": "load_native_device",
+                "target_kind": "track",
+                "target_name": "Bass",
+                "category": "instrument",
+                "device": "Operator",
+            },
+            "test",
+        )
+        self.assertEqual(self.transport.messages, [])
+        self.assertEqual(remote.messages[0]["device"], "Operator")
+
     def test_token_policy(self):
         policy = AccessPolicy("secret")
         self.assertTrue(policy.authorize("secret"))
