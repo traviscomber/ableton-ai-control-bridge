@@ -22,13 +22,14 @@ Remove-Item "$Root\dist\AbletonAIControlBridge" -Recurse -Force -ErrorAction Sil
     --name "AbletonAIControlBridge" `
     --collect-submodules ableton_bridge `
     --collect-submodules darksco `
-    "ableton_bridge\desktop.py"
+    "windows\desktop_entry.py"
 if ($LASTEXITCODE -ne 0) { throw "Application build failed." }
 
 $iscc = @(
-    "$env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe",
-    "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
-) | Where-Object { Test-Path $_ } | Select-Object -First 1
+    "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+    "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
+    "$env:ChocolateyInstall\bin\ISCC.exe"
+) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
 if (-not $iscc) { throw "Inno Setup 6 is required. Install it with: winget install JRSoftware.InnoSetup" }
 
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
