@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from ableton_bridge.commands import COMMANDS
+from ableton_bridge.commands import COMMANDS, REMOTE_SCRIPT_COMMANDS
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,10 +19,11 @@ def test_public_protocol_matches_max_receiver_dispatch() -> None:
     receiver_commands = _receiver_cases()
     public_receiver_commands = receiver_commands - {"undo"}
 
-    assert public_receiver_commands == set(COMMANDS), (
+    expected_max_commands = set(COMMANDS) - REMOTE_SCRIPT_COMMANDS
+    assert public_receiver_commands == expected_max_commands, (
         "Python protocol and Max receiver command sets diverged. "
-        f"Missing in receiver: {sorted(set(COMMANDS) - public_receiver_commands)}; "
-        f"missing in protocol: {sorted(public_receiver_commands - set(COMMANDS))}"
+        f"Missing in receiver: {sorted(expected_max_commands - public_receiver_commands)}; "
+        f"missing in protocol: {sorted(public_receiver_commands - expected_max_commands)}"
     )
 
 
