@@ -22,7 +22,7 @@ Remove-Item "$Root\dist\AbletonAIControlBridge" -Recurse -Force -ErrorAction Sil
     --name "AbletonAIControlBridge" `
     --collect-submodules ableton_bridge `
     --collect-submodules darksco `
-    "ableton_bridge\desktop.py"
+    "windows\desktop_entry.py"
 if ($LASTEXITCODE -ne 0) { throw "Application build failed." }
 
 $iscc = @(
