@@ -7,6 +7,7 @@ $Desktop = [Environment]::GetFolderPath("Desktop")
 $ProjectRoot = Join-Path $Desktop "Ableton AI Control Bridge"
 $WindowsDir = Join-Path $ProjectRoot "windows"
 $DeviceDir = Join-Path $ProjectRoot "Max for Live Device"
+$MaxSourceDir = Join-Path $ProjectRoot "max-for-live"
 $VenvPython = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
 $ConfigPath = Join-Path $ProjectRoot "config.json"
 $DataDir = Join-Path $ProjectRoot "data"
@@ -19,7 +20,7 @@ Write-Host "Everything will be installed here:" -ForegroundColor White
 Write-Host $ProjectRoot -ForegroundColor Green
 
 Write-Host "[1/6] Creating the Desktop package..." -ForegroundColor Yellow
-New-Item -ItemType Directory -Force -Path $ProjectRoot, $DeviceDir, $DataDir, $SoundLibrary | Out-Null
+New-Item -ItemType Directory -Force -Path $ProjectRoot, $DeviceDir, $MaxSourceDir, $DataDir, $SoundLibrary | Out-Null
 
 $sourceFull = [IO.Path]::GetFullPath($SourceRoot).TrimEnd('\')
 $targetFull = [IO.Path]::GetFullPath($ProjectRoot).TrimEnd('\')
@@ -126,6 +127,11 @@ function Install-MaxAsset($fileName) {
 Install-MaxAsset "AI-Control-Bridge-Receiver.maxpat"
 Install-MaxAsset "bridge_receiver.js"
 Install-MaxAsset "device-build-guide.md"
+
+# Compatibility source path for diagnostics and developer tools.
+Copy-Item (Join-Path $DeviceDir "AI-Control-Bridge-Receiver.maxpat") $MaxSourceDir -Force
+Copy-Item (Join-Path $DeviceDir "bridge_receiver.js") $MaxSourceDir -Force
+Copy-Item (Join-Path $DeviceDir "device-build-guide.md") $MaxSourceDir -Force
 
 function Find-Python {
     $candidates = @()
