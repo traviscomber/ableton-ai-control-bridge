@@ -72,6 +72,25 @@ class CommandValidationTest(unittest.TestCase):
         with self.assertRaises(CommandError):
             validate_command({"type": "set_time_signature", "numerator": 4, "denominator": 3})
 
+    def test_accepts_production_chain_commands(self):
+        validate_command({"type": "create_return_track", "name": "Darksco Space"})
+        validate_command({
+            "type": "set_track_send", "track_ref": "darksco:bass",
+            "return_name": "Darksco Space", "amount": 0.12,
+        })
+        validate_command({
+            "type": "load_native_device", "target_kind": "track",
+            "target_name": "Darksco Faultline Bass",
+            "category": "instrument", "device": "Operator",
+        })
+
+    def test_requires_one_return_target(self):
+        with self.assertRaises(CommandError):
+            validate_command({
+                "type": "set_track_send", "track": 0,
+                "return": 0, "return_name": "Space", "amount": 0.5,
+            })
+
 
 if __name__ == "__main__":
     unittest.main()
