@@ -96,6 +96,20 @@ function dispatch(c) {
     case "set_clip_color":
         api(clipPath(c)).set("color", integer(c.color, "color")); return {track: c.track, clip: c.clip, color: c.color};
     case "set_clip_loop": return setClipLoop(c);
+    case "create_return_track": return createReturnTrack(c);
+    case "set_return_volume":
+        setNormalized("live_set return_tracks " + returnTrack(c) + " mixer_device volume", c.volume);
+        return {return_track: returnTrack(c), volume: c.volume};
+    case "set_return_pan":
+        setNative("live_set return_tracks " + returnTrack(c) + " mixer_device panning", c.pan);
+        return {return_track: returnTrack(c), pan: c.pan};
+    case "set_track_send":
+        setNormalized(
+            "live_set tracks " + track(c) + " mixer_device sends " + returnTrack(c),
+            c.amount
+        );
+        return {track: track(c), return_track: returnTrack(c), amount: c.amount};
+    case "set_return_device_parameter": return setReturnDeviceParameter(c);
     default:
         throw new Error("Unsupported command type: " + c.type);
     }
@@ -114,12 +128,34 @@ function integer(value, name) {
 }
 
 function track(c) {
+    if (c.track_name !== undefined) {
+        var desiredName = String(c.track_name).toLowerCase();
+        var song = api("live_set");
+        var trackCount = song.getcount("tracks");
+        for (var i = 0; i < trackCount; i++) {
+            if (nameOf(api("live_set tracks " + i)).toLowerCase() === desiredName) return i;
+        }
+        throw new Error("Track not found: " + c.track_name);
+    }
     if (c.track_ref !== undefined) {
         var ref = String(c.track_ref);
         if (trackRefs[ref] === undefined) throw new Error("Unknown track_ref: " + ref);
         return trackRefs[ref];
     }
     return integer(c.track, "track");
+}
+
+function returnTrack(c) {
+    if (c.return_name !== undefined) {
+        var desired = String(c.return_name).toLowerCase();
+        var song = api("live_set");
+        var count = song.getcount("return_tracks");
+        for (var i = 0; i < count; i++) {
+            if (nameOf(api("live_set return_tracks " + i)).toLowerCase() === desired) return i;
+        }
+        throw new Error("Return track not found: " + c.return_name);
+    }
+    return integer(c.return, "return");
 }
 
 function clipSlotPath(c) {
@@ -149,20 +185,18 @@ function setNormalized(path, normalized) {
 }
 
 function setMacro(c) {
-    var trackIndex = track(c);
-    var devicePath = "live_set tracks " + trackIndex + " devices 0";
-    var device = api(devicePath);
+    var device = api("live_set tracks " + track(c) + " devices 0");
     var count = device.getcount("parameters");
     var target = null;
     var desired = "macro " + integer(c.macro, "macro");
     for (var i = 0; i < count; i++) {
-        var parameter = api(devicePath + " parameters " + i);
+        var parameter = api("live_set tracks " + c.track + " devices 0 parameters " + i);
         if (nameOf(parameter).toLowerCase() === desired) { target = parameter; break; }
     }
     if (!target) throw new Error("Rack macro not found: " + desired);
     var min = Number(scalar(target.get("min"))), max = Number(scalar(target.get("max")));
     target.set("value", min + (max - min) * Number(c.value));
-    return {track: trackIndex, track_ref: c.track_ref || null, macro: c.macro, value: c.value};
+    return {track: c.track, macro: c.macro, value: c.value};
 }
 
 function createTrack(c, method) {
@@ -184,6 +218,14 @@ function createScene(c) {
     var createdIndex = index < 0 ? song.getcount("scenes") - 1 : index;
     if (c.name !== undefined) api("live_set scenes " + createdIndex).set("name", String(c.name));
     return {scene: createdIndex, name: c.name || null};
+}
+
+function createReturnTrack(c) {
+    var song = api("live_set");
+    song.call("create_return_track");
+    var createdIndex = song.getcount("return_tracks") - 1;
+    api("live_set return_tracks " + createdIndex).set("name", String(c.name));
+    return {return_track: createdIndex, name: String(c.name)};
 }
 
 function setClipLoop(c) {
@@ -211,6 +253,29 @@ function setDeviceParameter(c) {
     var min = Number(scalar(parameter.get("min"))), max = Number(scalar(parameter.get("max")));
     parameter.set("value", min + (max - min) * Number(c.value));
     return {track: c.track, device: c.device, parameter: c.parameter, value: c.value};
+}
+
+function setReturnDeviceParameter(c) {
+    var returnIndex = returnTrack(c);
+    var trackPath = "live_set return_tracks " + returnIndex;
+    var trackApi = api(trackPath), deviceCount = trackApi.getcount("devices"), deviceIndex = -1;
+    for (var i = 0; i < deviceCount; i++) {
+        if (nameOf(api(trackPath + " devices " + i)) === String(c.device)) { deviceIndex = i; break; }
+    }
+    if (deviceIndex < 0) throw new Error("Return device not found: " + c.device);
+    var devicePath = trackPath + " devices " + deviceIndex;
+    var deviceApi = api(devicePath), parameterCount = deviceApi.getcount("parameters"), parameter = null;
+    for (var p = 0; p < parameterCount; p++) {
+        var candidate = api(devicePath + " parameters " + p);
+        if (nameOf(candidate) === String(c.parameter)) { parameter = candidate; break; }
+    }
+    if (!parameter) throw new Error("Return parameter not found: " + c.parameter);
+    var min = Number(scalar(parameter.get("min"))), max = Number(scalar(parameter.get("max")));
+    parameter.set("value", min + (max - min) * Number(c.value));
+    return {
+        return_track: returnIndex, device: c.device,
+        parameter: c.parameter, value: c.value
+    };
 }
 
 function createMidiClip(c) {
