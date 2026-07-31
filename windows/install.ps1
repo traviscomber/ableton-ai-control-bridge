@@ -13,6 +13,8 @@ $ConfigPath = Join-Path $ProjectRoot "config.json"
 $DataDir = Join-Path $ProjectRoot "data"
 $DataPath = Join-Path $DataDir "history.sqlite3"
 $SoundLibrary = Join-Path $ProjectRoot "Sound Library"
+$UserLibrary = Join-Path ([Environment]::GetFolderPath("MyDocuments")) "Ableton\User Library"
+$RemoteScriptInstallDir = Join-Path $UserLibrary "Remote Scripts\AbletonAIControlBridge"
 
 Write-Host ""
 Write-Host "Ableton AI Control Bridge - Windows + Live 11" -ForegroundColor Cyan
@@ -54,8 +56,11 @@ if ($sourceFull -ine $targetFull) {
         "darksco/cli.py",
         "darksco/sound_library.py",
         "darksco/catalog_scraper.py",
+        "remote-scripts/AbletonAIControlBridge/__init__.py",
+        "remote-scripts/AbletonAIControlBridge/control_surface.py",
         "examples/darksco/first-autonomous-track.json",
         "examples/darksco/first-autonomous-track.jsonl",
+        "examples/darksco/native-production-chain-live11.jsonl",
         "examples/smoke/v0.5-smoke-test.jsonl",
         "tests/test_commands.py",
         "tests/test_command_coverage.py",
@@ -133,6 +138,10 @@ Copy-Item (Join-Path $DeviceDir "AI-Control-Bridge-Receiver.maxpat") $MaxSourceD
 Copy-Item (Join-Path $DeviceDir "bridge_receiver.js") $MaxSourceDir -Force
 Copy-Item (Join-Path $DeviceDir "device-build-guide.md") $MaxSourceDir -Force
 
+New-Item -ItemType Directory -Force -Path $RemoteScriptInstallDir | Out-Null
+Copy-Item (Join-Path $ProjectRoot "remote-scripts\AbletonAIControlBridge\*.py") `
+    $RemoteScriptInstallDir -Force
+
 function Find-Python {
     $candidates = @()
     if ($PythonCommand) { $candidates += $PythonCommand }
@@ -198,7 +207,9 @@ $AllowedCommands = @(
     "set_song_loop", "create_scene", "duplicate_scene", "delete_scene",
     "duplicate_track", "delete_track", "set_track_mute", "set_track_solo",
     "launch_clip", "stop_track_clips", "set_clip_name", "set_clip_color",
-    "set_clip_loop"
+    "set_clip_loop", "create_return_track", "set_return_volume",
+    "set_return_pan", "set_track_send", "set_return_device_parameter",
+    "load_native_device"
 )
 if (-not (Test-Path $ConfigPath)) {
     $bytes = New-Object byte[] 32
@@ -213,6 +224,8 @@ if (-not (Test-Path $ConfigPath)) {
         udp_port = 9001
         ack_host = "127.0.0.1"
         ack_port = 9002
+        remote_script_host = "127.0.0.1"
+        remote_script_port = 9003
         database = $DataPath
         token = $token
         allow = $AllowedCommands
