@@ -11,6 +11,15 @@ on:
       - "pyproject.toml"
       - ".github/workflows/windows-installer.yml"
   push:
+    branches:
+      - main
+    paths:
+      - "ableton_bridge/**"
+      - "max-for-live/**"
+      - "remote-scripts/**"
+      - "windows/**"
+      - "pyproject.toml"
+      - ".github/workflows/windows-installer.yml"
     tags:
       - "v*"
 
