@@ -29,7 +29,7 @@ Cada acción se representa como JSON legible. El objetivo no es generar archivos
 
 ## Estado actual
 
-**Beta técnica / versión 0.4.2, optimizada para Windows + Live 11.**
+**Beta técnica / versión 0.5.0, optimizada para Windows + Live 11.**
 
 La v0.4 amplía el bridge de control a **composición de canciones por escenas**:
 transporte, compás, metrónomo, loops, escenas, pistas, clips, mezcla, nombres y
@@ -71,10 +71,17 @@ Set-ExecutionPolicy -Scope Process Bypass
 ```
 
 Después sigue la guía específica: [`docs/windows-live11.md`](docs/windows-live11.md).
-Al finalizar tendrás tres launchers de doble clic: `START BRIDGE.cmd`,
-`CHECK INSTALLATION.cmd` y `OPEN MAX DEVICE SOURCE.cmd`.
+Al finalizar tendrás cuatro launchers de doble clic: `START BRIDGE.cmd`,
+`CHECK INSTALLATION.cmd`, `OPEN MAX DEVICE SOURCE.cmd` e
+`IMPORT LICENSED SOUNDS.cmd`.
 Si Python no está instalado, el script intenta instalar Python 3.12
 automáticamente mediante `winget`.
+
+La v0.5 añade una biblioteca privada de sonidos para Darksco. El launcher
+`IMPORT LICENSED SOUNDS.cmd` importa WAV/AIFF/FLAC autorizados, elimina
+duplicados y conserva procedencia y licencia. `darksco-discover` reúne metadata
+desde Openverse o Freesound sin descargar audio; consulta
+[`docs/darksco.md`](docs/darksco.md).
 
 ### macOS o Linux
 
