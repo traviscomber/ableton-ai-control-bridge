@@ -15,7 +15,6 @@ from .security import AccessPolicy
 from .store import CommandStore
 from .transport import AckListener, UdpTransport
 
-
 class BridgeState:
     def __init__(
         self,
@@ -118,7 +117,7 @@ class BridgeState:
 
 def make_handler(state: BridgeState) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
-        server_version = "AbletonAIControlBridge/0.6.0"
+        server_version = "AbletonAIControlBridge/0.7"
 
         def do_GET(self) -> None:
             parsed = urlparse(self.path)
@@ -128,7 +127,7 @@ def make_handler(state: BridgeState) -> type[BaseHTTPRequestHandler]:
             if parsed.path == "/health":
                 self._send_json(200, {
                     "ok": True,
-                    "version": "0.6.0",
+                    "version": "0.7.0",
                     "dry_run": state.dry_run,
                     "approval_required": state.require_approval,
                     "authentication_required": bool(state.policy.token),
@@ -276,6 +275,7 @@ def build_parser(defaults: dict[str, Any] | None = None) -> argparse.ArgumentPar
 
 def load_config(path: str) -> dict[str, Any]:
     try:
+        # utf-8-sig accepts the BOM written by Windows PowerShell 5.1.
         defaults = json.loads(Path(path).read_text(encoding="utf-8-sig"))
     except (OSError, json.JSONDecodeError) as exc:
         raise ValueError(f"Cannot load config file: {exc}") from exc
@@ -316,7 +316,7 @@ def main() -> None:
     if not args.dry_run:
         threading.Thread(target=state.receive_acknowledgements, daemon=True).start()
     server = ThreadingHTTPServer((args.host, args.port), make_handler(state))
-    print(f"Ableton AI Control Bridge v0.6.0 listening on http://{args.host}:{args.port}")
+    print(f"Ableton AI Control Bridge v0.7.0 listening on http://{args.host}:{args.port}")
     print(f"UDP target={args.udp_host}:{args.udp_port} ack={args.ack_host}:{args.ack_port}")
     print(f"Remote Script target={args.remote_script_host}:{args.remote_script_port}")
     print(f"dry_run={args.dry_run} approval={args.require_approval} auth={bool(args.token)}")
@@ -324,17 +324,22 @@ def main() -> None:
 
 
 APPROVAL_UI = r'''<!doctype html>
-<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Ableton AI Control Bridge</title>
+<html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Darksco · Ableton AI Control Bridge</title>
 <style>
-:root{color-scheme:dark;font-family:Inter,system-ui;background:#111;color:#eee}body{max-width:1100px;margin:0 auto;padding:32px}h1{font-size:28px}header{display:flex;gap:16px;align-items:center;justify-content:space-between}input{background:#202020;border:1px solid #444;color:#fff;padding:10px;border-radius:8px}.card{background:#1a1a1a;border:1px solid #333;border-radius:12px;padding:16px;margin:12px 0}.meta{color:#aaa;font-size:12px}.status{color:#55e39f}pre{white-space:pre-wrap;color:#d7d7d7}button{border:0;border-radius:8px;padding:9px 14px;margin-right:8px;cursor:pointer}.approve{background:#55e39f}.reject{background:#ff6b6b}.undo{background:#ffc857}#error{color:#ff6b6b}
+:root{color-scheme:dark;font-family:Inter,Segoe UI,system-ui;background:#0d0f10;color:#eee}*{box-sizing:border-box}body{max-width:1180px;margin:0 auto;padding:32px}h1{font-size:28px;margin:0}.eyebrow{color:#63f5bd;font-size:12px;letter-spacing:.12em;font-weight:700}header{display:flex;gap:16px;align-items:center;justify-content:space-between;margin-bottom:22px}input,select,textarea{background:#191d20;border:1px solid #394147;color:#fff;padding:10px;border-radius:8px}.token{width:260px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.metric,.composer,.card{background:#171a1c;border:1px solid #30363a;border-radius:12px;padding:16px}.metric b{display:block;font-size:20px;margin-top:6px}.composer{margin:14px 0}.composer-row{display:flex;gap:8px;align-items:end;flex-wrap:wrap}.composer label{font-size:12px;color:#aab3b8;display:flex;flex-direction:column;gap:5px}.composer textarea{width:100%;min-height:74px;margin-top:10px;font-family:Consolas,monospace}.card{margin:12px 0}.meta{color:#929da3;font-size:12px}.status{color:#63f5bd}pre{white-space:pre-wrap;color:#d7d7d7}button{border:0;border-radius:8px;padding:10px 14px;margin-right:8px;cursor:pointer;font-weight:650}.primary,.approve{background:#63f5bd;color:#07110d}.reject{background:#ff6b6b}.undo{background:#ffc857;color:#181008}#error{color:#ff6b6b}.muted{color:#929da3}@media(max-width:760px){.grid{grid-template-columns:1fr}header{align-items:flex-start;flex-direction:column}.token{width:100%}}
 </style>
-<body><header><div><h1>Ableton AI Control Bridge</h1><p>Approval queue and command history</p></div><input id="token" type="password" placeholder="Local bridge token"></header><p id="error"></p><main id="list"></main>
+<body><header><div><div class="eyebrow">DARKSCO CONTROL SYSTEM</div><h1>Ableton AI Control Bridge</h1><p class="muted">Control local, historial y ejecución autónoma para Live 11</p></div><input class="token" id="token" type="password" placeholder="Token local"></header>
+<section class="grid"><div class="metric">Bridge<b id="bridgeState">Comprobando…</b></div><div class="metric">Ableton Receiver<b id="receiverState">Comprobando…</b></div><div class="metric">Modo<b id="modeState">Comprobando…</b></div></section>
+<section class="composer"><div class="composer-row"><label>Comando<select id="commandType"><option>set_tempo</option><option>start_playback</option><option>stop_playback</option><option>create_midi_track</option><option>create_scene</option><option>stop_all_clips</option></select></label><label>Tempo<input id="bpm" type="number" min="20" max="999" value="124"></label><button class="primary" onclick="sendCommand()">EJECUTAR</button><button onclick="load()">ACTUALIZAR</button></div><textarea id="jsonCommand" spellcheck="false">{"type":"set_tempo","bpm":124}</textarea><p class="muted">Puedes editar el JSON para utilizar cualquiera de los comandos permitidos.</p></section>
+<p id="error"></p><h2>Actividad reciente</h2><main id="list"></main>
 <script>
-const token=document.querySelector('#token');token.value=localStorage.bridgeToken||'';token.onchange=()=>{localStorage.bridgeToken=token.value;load()};
+const params=new URLSearchParams(location.search);const token=document.querySelector('#token');token.value=params.get('token')||localStorage.bridgeToken||'';if(params.get('token')){localStorage.bridgeToken=token.value;history.replaceState({},'',location.pathname)}token.onchange=()=>{localStorage.bridgeToken=token.value;load()};
 const headers=()=>({'X-Bridge-Token':token.value});
 async function action(id,name){await fetch(`/api/commands/${id}/${name}`,{method:'POST',headers:headers()});load()}
-async function load(){try{const r=await fetch('/api/commands?limit=100',{headers:headers()});const data=await r.json();if(!r.ok)throw Error(data.error);document.querySelector('#error').textContent='';document.querySelector('#list').innerHTML=data.commands.map(c=>`<section class="card"><div><b>${c.command_type}</b> · <span class="status">${c.status}</span></div><div class="meta">${c.created_at} · ${c.id}</div><pre>${JSON.stringify(c.payload,null,2)}</pre>${c.error?`<p id="error">${c.error}</p>`:''}${c.status==='pending'?`<button class="approve" onclick="action('${c.id}','approve')">Approve</button><button class="reject" onclick="action('${c.id}','reject')">Reject</button>`:''}${['sent','acknowledged'].includes(c.status)?`<button class="undo" onclick="action('${c.id}','undo')">Undo</button>`:''}</section>`).join('')||'<p>No commands yet.</p>'}catch(e){document.querySelector('#error').textContent=e.message}}
+const type=document.querySelector('#commandType'),bpm=document.querySelector('#bpm'),jsonBox=document.querySelector('#jsonCommand');type.onchange=()=>{jsonBox.value=type.value==='set_tempo'?JSON.stringify({type:type.value,bpm:Number(bpm.value)}):JSON.stringify({type:type.value})};bpm.oninput=()=>{if(type.value==='set_tempo')type.onchange()};
+async function sendCommand(){try{const payload=JSON.parse(jsonBox.value);const r=await fetch('/command',{method:'POST',headers:{...headers(),'Content-Type':'application/json'},body:JSON.stringify(payload)});const data=await r.json();if(!r.ok)throw Error(data.error);document.querySelector('#error').textContent='';load()}catch(e){document.querySelector('#error').textContent=e.message}}
+async function load(){try{const h=await fetch('/health').then(r=>r.json());document.querySelector('#bridgeState').textContent=`Activo · v${h.version}`;document.querySelector('#receiverState').textContent=h.max_receiver_seen?'Conectado':'Esperando Live';document.querySelector('#modeState').textContent=h.approval_required?'Con aprobación':'Autónomo';const r=await fetch('/api/commands?limit=100',{headers:headers()});const data=await r.json();if(!r.ok)throw Error(data.error);document.querySelector('#error').textContent='';document.querySelector('#list').innerHTML=data.commands.map(c=>`<section class="card"><div><b>${c.command_type}</b> · <span class="status">${c.status}</span></div><div class="meta">${c.created_at} · ${c.id}</div><pre>${JSON.stringify(c.payload,null,2)}</pre>${c.error?`<p id="error">${c.error}</p>`:''}${c.status==='pending'?`<button class="approve" onclick="action('${c.id}','approve')">Aprobar</button><button class="reject" onclick="action('${c.id}','reject')">Rechazar</button>`:''}${['sent','acknowledged'].includes(c.status)?`<button class="undo" onclick="action('${c.id}','undo')">Undo</button>`:''}</section>`).join('')||'<p class="muted">Todavía no hay comandos.</p>'}catch(e){document.querySelector('#error').textContent=e.message}}
 load();setInterval(load,2000);
 </script></body></html>'''
 
