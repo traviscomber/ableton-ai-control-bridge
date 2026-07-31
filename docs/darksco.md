@@ -49,3 +49,38 @@ Plans store a seed so a composition can be reproduced and revised.
   }]
 }
 ```
+
+## Biblioteca de sonidos licenciados
+
+Darksco v0.5 separa descubrimiento, verificación e importación:
+
+1. `darksco-discover` consulta APIs públicas y guarda solamente metadata como
+   candidatos. No descarga audio.
+2. El músico revisa la página original y su licencia. Los resultados llevan
+   `license_verified: false` hasta esa revisión.
+3. `darksco-library` copia archivos WAV/AIFF/FLAC ya licenciados, calcula SHA-256,
+   elimina duplicados, detecta BPM/tonalidad cuando aparecen en el nombre y los
+   clasifica para dark disco, funk y techno.
+
+Descubrimiento abierto, sin API key:
+
+```powershell
+.\.venv\Scripts\python.exe -m darksco.catalog_scraper "dark disco funk loop" --source openverse
+.\.venv\Scripts\python.exe -m darksco.catalog_scraper "techno percussion" --source openverse
+```
+
+Freesound requiere un token propio:
+
+```powershell
+$env:FREESOUND_API_KEY = "TU_TOKEN"
+.\.venv\Scripts\python.exe -m darksco.catalog_scraper "analog techno one shot" --source freesound
+```
+
+Para incorporar compras o descargas autorizadas, haz doble clic en
+`IMPORT LICENSED SOUNDS.cmd` y pega la carpeta de origen. La biblioteca,
+certificados y catálogo quedan en `Sound Library`, que está excluida de Git para
+no publicar material licenciado ni documentos privados.
+
+El catálogo no convierte una muestra en contenido autorizado: conserva la
+procedencia para que puedas demostrarla. Verifica siempre la licencia original
+y guarda el certificado del proveedor.
