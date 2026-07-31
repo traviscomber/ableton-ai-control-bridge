@@ -37,8 +37,32 @@ Para probarla:
 4. En Preferences → Link, Tempo & MIDI, selecciona la nueva Control Surface y asigna el puerto virtual como input/output.
 5. Envía los CC definidos en la plantilla desde una futura implementación MIDI del bridge.
 
-## Decisión técnica
+## Carga experimental de dispositivos nativos en Live 11
 
-No se incluye un Remote Script Python basado en módulos internos de Ableton. Aunque existen scripts de terceros, Ableton no publica una API estable completa para replicar mediante Python todas las operaciones del Live Object Model. Introducir dependencias sobre módulos internos reduciría la portabilidad entre versiones de Live.
+La v0.6 incorpora `remote-scripts/AbletonAIControlBridge` como segunda vía
+experimental. Escucha OSC solamente en `127.0.0.1:9003` y acepta
+`load_native_device`. El bridge envía el resto de los comandos a Max en 9001 y
+recibe ACK de ambos motores en 9002.
 
-La fase siguiente recomendada es añadir al bridge un transporte MIDI opcional que traduzca únicamente el subconjunto compatible con `UserConfiguration.txt`, manteniendo el transporte Max for Live para las funciones avanzadas.
+Esta vía usa el Browser interno del Remote Script porque el Live Object Model
+público no expone una función para insertar Operator, Analog, EQ Eight,
+Compressor u otros dispositivos. Por eso está fijada a Live 11 y debe fallar de
+forma explícita cuando un dispositivo no existe o cambia de nombre.
+
+El instalador copia el script a:
+
+```text
+Documentos\Ableton\User Library\Remote Scripts\AbletonAIControlBridge
+```
+
+Después de instalar:
+
+1. Reinicia Live.
+2. Abre Preferences → Link, Tempo & MIDI.
+3. Selecciona `AbletonAIControlBridge` como Control Surface.
+4. Deja sus puertos MIDI en `None`; el transporte es UDP local.
+5. Reinicia `START BRIDGE.cmd`.
+
+La plantilla
+`examples/darksco/native-production-chain-live11.jsonl` carga instrumentos,
+efectos, retornos y sends sobre el primer track autónomo de Darksco.
