@@ -9,13 +9,13 @@ $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
 Write-Host "Building Ableton AI Control Bridge for Windows..." -ForegroundColor Cyan
-& $Python -3 -m pip install --upgrade pyinstaller
+& $Python -m pip install --upgrade pyinstaller
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller installation failed." }
 
 Remove-Item "$Root\build\AbletonAIControlBridge" -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item "$Root\dist\AbletonAIControlBridge" -Recurse -Force -ErrorAction SilentlyContinue
 
-& $Python -3 -m PyInstaller `
+& $Python -m PyInstaller `
     --noconfirm `
     --clean `
     --windowed `
