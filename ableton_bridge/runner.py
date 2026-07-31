@@ -11,7 +11,7 @@ from .commands import validate_command
 
 
 def iter_jsonl(path: str):
-    with Path(path).open("r", encoding="utf-8") as handle:
+    with Path(path).open("r", encoding="utf-8-sig") as handle:
         for line_number, line in enumerate(handle, 1):
             stripped = line.strip()
             if not stripped or stripped.startswith("#"):
