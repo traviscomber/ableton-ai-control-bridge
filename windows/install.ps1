@@ -11,6 +11,7 @@ $VenvPython = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
 $ConfigPath = Join-Path $ProjectRoot "config.json"
 $DataDir = Join-Path $ProjectRoot "data"
 $DataPath = Join-Path $DataDir "history.sqlite3"
+$SoundLibrary = Join-Path $ProjectRoot "Sound Library"
 
 Write-Host ""
 Write-Host "Ableton AI Control Bridge - Windows + Live 11" -ForegroundColor Cyan
@@ -18,7 +19,7 @@ Write-Host "Everything will be installed here:" -ForegroundColor White
 Write-Host $ProjectRoot -ForegroundColor Green
 
 Write-Host "[1/6] Creating the Desktop package..." -ForegroundColor Yellow
-New-Item -ItemType Directory -Force -Path $ProjectRoot, $DeviceDir, $DataDir | Out-Null
+New-Item -ItemType Directory -Force -Path $ProjectRoot, $DeviceDir, $DataDir, $SoundLibrary | Out-Null
 
 $sourceFull = [IO.Path]::GetFullPath($SourceRoot).TrimEnd('\')
 $targetFull = [IO.Path]::GetFullPath($ProjectRoot).TrimEnd('\')
@@ -50,12 +51,15 @@ if ($sourceFull -ine $targetFull) {
         "darksco/song_plan.py",
         "darksco/compiler.py",
         "darksco/cli.py",
+        "darksco/sound_library.py",
+        "darksco/catalog_scraper.py",
         "examples/darksco/first-autonomous-track.json",
         "examples/darksco/first-autonomous-track.jsonl",
         "examples/smoke/v0.5-smoke-test.jsonl",
         "tests/test_commands.py",
         "tests/test_command_coverage.py",
         "tests/test_darksco.py",
+        "tests/test_sound_library.py",
         "tests/test_max_receiver.py",
         "tests/test_preflight.py",
         "tests/test_smoke_sequence.py",
@@ -70,6 +74,7 @@ if ($sourceFull -ine $targetFull) {
         "windows/doctor.ps1",
         "windows/start-bridge.ps1",
         "windows/open-device-source.ps1",
+        "windows/import-sounds.ps1",
         "pyproject.toml"
     )
     foreach ($relative in $repairFiles) {
@@ -237,6 +242,12 @@ pause
 $startCmd | Set-Content -Encoding ASCII (Join-Path $ProjectRoot "START BRIDGE.cmd")
 $doctorCmd | Set-Content -Encoding ASCII (Join-Path $ProjectRoot "CHECK INSTALLATION.cmd")
 $deviceCmd | Set-Content -Encoding ASCII (Join-Path $ProjectRoot "OPEN MAX DEVICE SOURCE.cmd")
+$soundsCmd = @"
+@echo off
+PowerShell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0windows\import-sounds.ps1"
+pause
+"@
+$soundsCmd | Set-Content -Encoding ASCII (Join-Path $ProjectRoot "IMPORT LICENSED SOUNDS.cmd")
 
 Write-Host "[5/6] Running diagnostics..." -ForegroundColor Yellow
 & (Join-Path $WindowsDir "doctor.ps1") -Quiet
