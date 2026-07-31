@@ -1,5 +1,27 @@
 # Ableton AI Control Bridge
 
+## Windows installer (recommended for Ableton Live 11)
+
+Download `Ableton-AI-Control-Bridge-Setup-v0.7.0.exe` from the latest GitHub release and run it. The installer:
+
+- installs the native desktop control application without requiring Python;
+- creates Start menu and optional Desktop shortcuts;
+- installs the Max for Live receiver in the Ableton User Library;
+- installs the `AbletonAIControlBridge` Remote Script;
+- creates a secure local token and command history on first launch;
+- starts in autonomous mode with every supported command enabled.
+
+After installation, restart Ableton Live 11, load **AI Control Bridge Receiver** on a MIDI track, and launch **Ableton AI Control Bridge** from the Desktop. The application shows bridge and receiver health and opens the AI control interface without asking the user to copy a token.
+
+To build the installer locally on Windows:
+
+```powershell
+winget install JRSoftware.InnoSetup
+PowerShell.exe -ExecutionPolicy Bypass -File .\windows\build-installer.ps1
+```
+
+The resulting `.exe` is created in `dist-installer`.
+
 Puente local y auditable para controlar **Ableton Live** mediante comandos JSON generados por una IA, un agente o cualquier cliente HTTP.
 
 La aplicación traduce instrucciones estructuradas recibidas por HTTP, las valida y las envía por UDP a un dispositivo de Max for Live. Ese dispositivo utiliza la Live API para ejecutar acciones dentro de Ableton Live.
@@ -29,7 +51,7 @@ Cada acción se representa como JSON legible. El objetivo no es generar archivos
 
 ## Estado actual
 
-**Beta técnica / versión 0.6.0, optimizada para Windows + Live 11.**
+**Beta técnica / versión 0.7.0, optimizada para Windows + Live 11.**
 
 La v0.4 amplía el bridge de control a **composición de canciones por escenas**:
 transporte, compás, metrónomo, loops, escenas, pistas, clips, mezcla, nombres y
