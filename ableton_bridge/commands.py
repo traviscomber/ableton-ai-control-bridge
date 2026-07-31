@@ -26,7 +26,10 @@ COMMANDS: dict[str, CommandSpec] = {
     "create_audio_track": CommandSpec("create_audio_track", ("name",), ("index", "track_ref")),
     "create_midi_track": CommandSpec("create_midi_track", ("name",), ("index", "track_ref")),
     "arm_track": CommandSpec("arm_track", ("armed",), ("track", "track_ref")),
-    "set_device_parameter": CommandSpec("set_device_parameter", ("device", "parameter", "value"), ("track", "track_ref")),
+    "set_device_parameter": CommandSpec(
+        "set_device_parameter", ("device", "parameter", "value"),
+        ("track", "track_ref", "track_name"),
+    ),
     "start_playback": CommandSpec("start_playback", ()),
     "stop_playback": CommandSpec("stop_playback", ()),
     "set_time_signature": CommandSpec("set_time_signature", ("numerator", "denominator")),
@@ -44,13 +47,38 @@ COMMANDS: dict[str, CommandSpec] = {
     "set_clip_name": CommandSpec("set_clip_name", ("clip", "name"), ("track", "track_ref")),
     "set_clip_color": CommandSpec("set_clip_color", ("clip", "color"), ("track", "track_ref")),
     "set_clip_loop": CommandSpec("set_clip_loop", ("clip", "start", "length", "enabled"), ("track", "track_ref")),
+    "create_return_track": CommandSpec("create_return_track", ("name",)),
+    "set_return_volume": CommandSpec("set_return_volume", ("volume",), ("return", "return_name")),
+    "set_return_pan": CommandSpec("set_return_pan", ("pan",), ("return", "return_name")),
+    "set_track_send": CommandSpec(
+        "set_track_send",
+        ("amount",),
+        ("track", "track_ref", "track_name", "return", "return_name"),
+    ),
+    "set_return_device_parameter": CommandSpec(
+        "set_return_device_parameter",
+        ("device", "parameter", "value"),
+        ("return", "return_name"),
+    ),
+    "load_native_device": CommandSpec(
+        "load_native_device",
+        ("target_kind", "target_name", "category", "device"),
+    ),
 }
+
+REMOTE_SCRIPT_COMMANDS = {"load_native_device"}
 
 TRACK_TARGET_COMMANDS = {
     "set_track_volume", "set_track_pan", "set_macro", "create_midi_clip",
     "arm_track", "set_device_parameter", "duplicate_track", "delete_track",
     "set_track_mute", "set_track_solo", "launch_clip", "stop_track_clips",
     "set_clip_name", "set_clip_color", "set_clip_loop",
+    "set_track_send",
+}
+
+RETURN_TARGET_COMMANDS = {
+    "set_return_volume", "set_return_pan", "set_track_send",
+    "set_return_device_parameter",
 }
 
 
@@ -76,9 +104,18 @@ def validate_command(payload: dict[str, Any]) -> dict[str, Any]:
         raise CommandError(f"Unsupported field(s) for {command_type}: {', '.join(extra)}")
 
     if command_type in TRACK_TARGET_COMMANDS:
-        targets = int("track" in payload) + int("track_ref" in payload)
+        targets = (
+            int("track" in payload)
+            + int("track_ref" in payload)
+            + int("track_name" in payload)
+        )
         if targets != 1:
-            raise CommandError("Provide exactly one of track or track_ref.")
+            raise CommandError("Provide exactly one of track, track_ref, or track_name.")
+
+    if command_type in RETURN_TARGET_COMMANDS:
+        targets = int("return" in payload) + int("return_name" in payload)
+        if targets != 1:
+            raise CommandError("Provide exactly one of return or return_name.")
 
     _validate_ranges(payload)
     return payload
@@ -101,6 +138,11 @@ def _validate_ranges(payload: dict[str, Any]) -> None:
         not isinstance(payload["track_ref"], str) or not payload["track_ref"].strip()
     ):
         raise CommandError("track_ref must be a non-empty string.")
+
+    if "track_name" in payload and (
+        not isinstance(payload["track_name"], str) or not payload["track_name"].strip()
+    ):
+        raise CommandError("track_name must be a non-empty string.")
 
     if command_type == "launch_scene":
         scene = payload["scene"]
@@ -204,6 +246,50 @@ def _validate_ranges(payload: dict[str, Any]) -> None:
         color = payload["color"]
         if not isinstance(color, int) or not 0 <= color <= 0xFFFFFF:
             raise CommandError("color must be an integer between 0 and 16777215.")
+
+    if command_type == "create_return_track" and (
+        not isinstance(payload["name"], str) or not payload["name"].strip()
+    ):
+        raise CommandError("name must be a non-empty string.")
+
+    if "return" in payload and (
+        not isinstance(payload["return"], int) or payload["return"] < 0
+    ):
+        raise CommandError("return must be a zero-based integer.")
+
+    if "return_name" in payload and (
+        not isinstance(payload["return_name"], str) or not payload["return_name"].strip()
+    ):
+        raise CommandError("return_name must be a non-empty string.")
+
+    if command_type in ("set_return_volume", "set_track_send"):
+        field = "volume" if command_type == "set_return_volume" else "amount"
+        value = _number(payload[field], field)
+        if not 0 <= value <= 1:
+            raise CommandError(f"{field} must be between 0 and 1.")
+
+    if command_type == "set_return_pan":
+        pan = _number(payload["pan"], "pan")
+        if not -1 <= pan <= 1:
+            raise CommandError("pan must be between -1 and 1.")
+
+    if command_type == "set_return_device_parameter":
+        for field in ("device", "parameter"):
+            if not isinstance(payload[field], str) or not payload[field].strip():
+                raise CommandError(f"{field} must be a non-empty string.")
+        value = _number(payload["value"], "value")
+        if not 0 <= value <= 1:
+            raise CommandError("value must be between 0 and 1.")
+
+    if command_type == "load_native_device":
+        if payload["target_kind"] not in {"track", "return", "master"}:
+            raise CommandError("target_kind must be track, return, or master.")
+        if not isinstance(payload["target_name"], str) or not payload["target_name"].strip():
+            raise CommandError("target_name must be a non-empty string.")
+        if payload["category"] not in {"instrument", "audio_effect", "midi_effect"}:
+            raise CommandError("category must be instrument, audio_effect, or midi_effect.")
+        if not isinstance(payload["device"], str) or not payload["device"].strip():
+            raise CommandError("device must be a non-empty string.")
 
 
 def _validate_note(note: Any) -> None:
