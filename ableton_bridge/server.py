@@ -10,7 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from .commands import COMMANDS, CommandError, validate_command
+from .commands import COMMANDS, REMOTE_SCRIPT_COMMANDS, CommandError, validate_command
 from .security import AccessPolicy
 from .store import CommandStore
 from .transport import AckListener, UdpTransport
@@ -27,6 +27,7 @@ class BridgeState:
         require_approval: bool = False,
         ack_host: str = "127.0.0.1",
         ack_port: int = 9002,
+        remote_transport: UdpTransport | None = None,
     ):
         self.transport = transport
         self.store = store
@@ -35,6 +36,7 @@ class BridgeState:
         self.require_approval = require_approval
         self.ack_host = ack_host
         self.ack_port = ack_port
+        self.remote_transport = remote_transport
         self.last_ack_at: str | None = None
 
     def submit(self, payload: dict[str, Any], source: str) -> dict[str, Any]:
@@ -55,7 +57,14 @@ class BridgeState:
         envelope["ack_host"] = self.ack_host
         envelope["ack_port"] = self.ack_port
         try:
-            self.transport.send(envelope)
+            transport = (
+                self.remote_transport
+                if envelope.get("type") in REMOTE_SCRIPT_COMMANDS
+                else self.transport
+            )
+            if transport is None:
+                raise OSError("Remote Script transport is not configured")
+            transport.send(envelope)
         except OSError as exc:
             return self.store.update(record["id"], "error", error=str(exc)) or record
         return self.store.update(record["id"], "sent", result={"forwarded": True}) or record
@@ -109,7 +118,7 @@ class BridgeState:
 
 def make_handler(state: BridgeState) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
-        server_version = "AbletonAIControlBridge/0.4.3"
+        server_version = "AbletonAIControlBridge/0.6.0"
 
         def do_GET(self) -> None:
             parsed = urlparse(self.path)
@@ -119,12 +128,16 @@ def make_handler(state: BridgeState) -> type[BaseHTTPRequestHandler]:
             if parsed.path == "/health":
                 self._send_json(200, {
                     "ok": True,
-                    "version": "0.4.3",
+                    "version": "0.6.0",
                     "dry_run": state.dry_run,
                     "approval_required": state.require_approval,
                     "authentication_required": bool(state.policy.token),
                     "allowed_commands": sorted(state.policy.allowed or COMMANDS),
                     "udp_target": f"{state.transport.host}:{state.transport.port}",
+                    "remote_script_target": (
+                        f"{state.remote_transport.host}:{state.remote_transport.port}"
+                        if state.remote_transport else None
+                    ),
                     "ack_listener": f"{state.ack_host}:{state.ack_port}",
                     "max_receiver_seen": state.last_ack_at is not None,
                     "last_ack_at": state.last_ack_at,
@@ -248,6 +261,8 @@ def build_parser(defaults: dict[str, Any] | None = None) -> argparse.ArgumentPar
     parser.add_argument("--udp-port", default=9001, type=int)
     parser.add_argument("--ack-host", default="127.0.0.1")
     parser.add_argument("--ack-port", default=9002, type=int)
+    parser.add_argument("--remote-script-host", default="127.0.0.1")
+    parser.add_argument("--remote-script-port", default=9003, type=int)
     parser.add_argument("--database", default=".ableton-bridge/history.sqlite3")
     parser.add_argument("--token", default=os.environ.get("ABLETON_BRIDGE_TOKEN"))
     parser.add_argument("--allow", help="Comma-separated command allowlist.")
@@ -296,12 +311,14 @@ def main() -> None:
         require_approval=args.require_approval,
         ack_host=args.ack_host,
         ack_port=args.ack_port,
+        remote_transport=UdpTransport(args.remote_script_host, args.remote_script_port),
     )
     if not args.dry_run:
         threading.Thread(target=state.receive_acknowledgements, daemon=True).start()
     server = ThreadingHTTPServer((args.host, args.port), make_handler(state))
-    print(f"Ableton AI Control Bridge v0.4.3 listening on http://{args.host}:{args.port}")
+    print(f"Ableton AI Control Bridge v0.6.0 listening on http://{args.host}:{args.port}")
     print(f"UDP target={args.udp_host}:{args.udp_port} ack={args.ack_host}:{args.ack_port}")
+    print(f"Remote Script target={args.remote_script_host}:{args.remote_script_port}")
     print(f"dry_run={args.dry_run} approval={args.require_approval} auth={bool(args.token)}")
     server.serve_forever()
 
