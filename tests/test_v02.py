@@ -89,6 +89,16 @@ class VersionTwoTest(unittest.TestCase):
         finally:
             os.unlink(path)
 
+    def test_jsonl_runner_accepts_windows_utf8_bom(self):
+        handle, path = tempfile.mkstemp(suffix=".jsonl")
+        try:
+            with os.fdopen(handle, "wb") as stream:
+                stream.write(b'\xef\xbb\xbf{"type":"set_tempo","bpm":120}\r\n')
+            commands = list(iter_jsonl(path))
+            self.assertEqual(commands[0][1]["bpm"], 120)
+        finally:
+            os.unlink(path)
+
     def test_authenticated_http_approval_flow(self):
         state = self.state(token="secret", require_approval=True, dry_run=True)
         server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(state))
