@@ -1,0 +1,43 @@
+{"type":"create_return_track","name":"Darksco Space"}
+{"type":"create_return_track","name":"Darksco Delay"}
+{"type":"load_native_device","target_kind":"return","target_name":"Darksco Space","category":"audio_effect","device":"Reverb"}
+{"type":"load_native_device","target_kind":"return","target_name":"Darksco Delay","category":"audio_effect","device":"Delay"}
+{"type":"set_return_volume","return_name":"Darksco Space","volume":0.72}
+{"type":"set_return_volume","return_name":"Darksco Delay","volume":0.68}
+{"type":"set_return_device_parameter","return_name":"Darksco Space","device":"Reverb","parameter":"Dry/Wet","value":1.0}
+{"type":"set_return_device_parameter","return_name":"Darksco Space","device":"Reverb","parameter":"Decay Time","value":0.55}
+{"type":"set_return_device_parameter","return_name":"Darksco Delay","device":"Delay","parameter":"Dry/Wet","value":1.0}
+{"type":"set_return_device_parameter","return_name":"Darksco Delay","device":"Delay","parameter":"Feedback","value":0.34}
+{"type":"load_native_device","target_kind":"track","target_name":"Darksco Pulse","category":"instrument","device":"Operator"}
+{"type":"load_native_device","target_kind":"track","target_name":"Darksco Pulse","category":"audio_effect","device":"EQ Eight"}
+{"type":"load_native_device","target_kind":"track","target_name":"Darksco Pulse","category":"audio_effect","device":"Compressor"}
+{"type":"set_device_parameter","track_name":"Darksco Pulse","device":"Operator","parameter":"Filter Freq","value":0.38}
+{"type":"set_device_parameter","track_name":"Darksco Pulse","device":"Compressor","parameter":"Threshold","value":0.42}
+{"type":"set_track_send","track_name":"Darksco Pulse","return_name":"Darksco Space","amount":0.08}
+{"type":"set_track_send","track_name":"Darksco Pulse","return_name":"Darksco Delay","amount":0.04}
+{"type":"load_native_device","target_kind":"track","target_name":"Darksco Faultline Bass","category":"instrument","device":"Operator"}
+{"type":"load_native_device","target_kind":"track","target_name":"Darksco Faultline Bass","category":"audio_effect","device":"Saturator"}
+{"type":"load_native_device","target_kind":"track","target_name":"Darksco Faultline Bass","category":"audio_effect","device":"EQ Eight"}
+{"type":"load_native_device","target_kind":"track","target_name":"Darksco Faultline Bass","category":"audio_effect","device":"Compressor"}
+{"type":"set_device_parameter","track_name":"Darksco Faultline Bass","device":"Operator","parameter":"Filter Freq","value":0.28}
+{"type":"set_device_parameter","track_name":"Darksco Faultline Bass","device":"Saturator","parameter":"Drive","value":0.22}
+{"type":"set_device_parameter","track_name":"Darksco Faultline Bass","device":"Compressor","parameter":"Threshold","value":0.36}
+{"type":"set_track_send","track_name":"Darksco Faultline Bass","return_name":"Darksco Space","amount":0.035}
+{"type":"set_track_send","track_name":"Darksco Faultline Bass","return_name":"Darksco Delay","amount":0.015}
+{"type":"load_native_device","target_kind":"track","target_name":"Darksco Glass Chords","category":"instrument","device":"Analog"}
+{"type":"load_native_device","target_kind":"track","target_name":"Darksco Glass Chords","category":"audio_effect","device":"Auto Filter"}
+{"type":"load_native_device","target_kind":"track","target_name":"Darksco Glass Chords","category":"audio_effect","device":"Chorus-Ensemble"}
+{"type":"load_native_device","target_kind":"track","target_name":"Darksco Glass Chords","category":"audio_effect","device":"EQ Eight"}
+{"type":"load_native_device","target_kind":"track","target_name":"Darksco Glass Chords","category":"audio_effect","device":"Compressor"}
+{"type":"set_device_parameter","track_name":"Darksco Glass Chords","device":"Auto Filter","parameter":"Frequency","value":0.46}
+{"type":"set_device_parameter","track_name":"Darksco Glass Chords","device":"Compressor","parameter":"Threshold","value":0.48}
+{"type":"set_track_send","track_name":"Darksco Glass Chords","return_name":"Darksco Space","amount":0.31}
+{"type":"set_track_send","track_name":"Darksco Glass Chords","return_name":"Darksco Delay","amount":0.16}
+{"type":"load_native_device","target_kind":"track","target_name":"Darksco Signal Lead","category":"instrument","device":"Operator"}
+{"type":"load_native_device","target_kind":"track","target_name":"Darksco Signal Lead","category":"audio_effect","device":"Auto Filter"}
+{"type":"load_native_device","target_kind":"track","target_name":"Darksco Signal Lead","category":"audio_effect","device":"EQ Eight"}
+{"type":"load_native_device","target_kind":"track","target_name":"Darksco Signal Lead","category":"audio_effect","device":"Compressor"}
+{"type":"set_device_parameter","track_name":"Darksco Signal Lead","device":"Operator","parameter":"Filter Freq","value":0.62}
+{"type":"set_device_parameter","track_name":"Darksco Signal Lead","device":"Compressor","parameter":"Threshold","value":0.45}
+{"type":"set_track_send","track_name":"Darksco Signal Lead","return_name":"Darksco Space","amount":0.24}
+{"type":"set_track_send","track_name":"Darksco Signal Lead","return_name":"Darksco Delay","amount":0.29}
