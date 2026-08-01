@@ -1,4 +1,4 @@
-from ableton_bridge.desktop import main
+from ableton_bridge.autostart import main
 
 
 if __name__ == "__main__":
