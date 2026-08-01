@@ -7,7 +7,7 @@ dependencies = []
 
 [project.scripts]
 ableton-bridge = "ableton_bridge.gui_server:main"
-ableton-bridge-desktop = "ableton_bridge.desktop:main"
+ableton-bridge-desktop = "ableton_bridge.autostart:main"
 ableton-bridge-send = "ableton_bridge.cli:main"
 ableton-bridge-run = "ableton_bridge.runner:main"
 ableton-bridge-check = "ableton_bridge.preflight:main"
