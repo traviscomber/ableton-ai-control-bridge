@@ -7,13 +7,37 @@ import type {
 } from "./types";
 
 const DEFAULT_BRIDGE_BASE = "http://127.0.0.1:8765";
+let bootstrapped = false;
+
+function bootstrapConnection(): void {
+  if (typeof window === "undefined" || bootstrapped) return;
+  bootstrapped = true;
+
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get("token") || params.get("bridge_token");
+  const url = params.get("bridge") || params.get("bridge_url");
+
+  if (url) localStorage.setItem("titanBridgeUrl", url);
+  if (token) localStorage.setItem("titanBridgeToken", token);
+
+  if (url || token) {
+    params.delete("token");
+    params.delete("bridge_token");
+    params.delete("bridge");
+    params.delete("bridge_url");
+    const clean = `${window.location.pathname}${params.size ? `?${params.toString()}` : ""}${window.location.hash}`;
+    window.history.replaceState({}, "", clean);
+  }
+}
 
 function bridgeBase(): string {
   if (typeof window === "undefined") return DEFAULT_BRIDGE_BASE;
+  bootstrapConnection();
   return localStorage.getItem("titanBridgeUrl") || process.env.NEXT_PUBLIC_BRIDGE_URL || DEFAULT_BRIDGE_BASE;
 }
 
 function bridgeHeaders(): HeadersInit {
+  if (typeof window !== "undefined") bootstrapConnection();
   const token = typeof window !== "undefined" ? localStorage.getItem("titanBridgeToken") || "" : "";
   return {
     "Content-Type": "application/json",
@@ -29,6 +53,7 @@ export function saveBridgeConnection(url: string, token: string): void {
 
 export function readBridgeConnection(): { url: string; token: string } {
   if (typeof window === "undefined") return { url: DEFAULT_BRIDGE_BASE, token: "" };
+  bootstrapConnection();
   return {
     url: localStorage.getItem("titanBridgeUrl") || DEFAULT_BRIDGE_BASE,
     token: localStorage.getItem("titanBridgeToken") || "",
