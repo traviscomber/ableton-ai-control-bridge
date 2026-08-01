@@ -62,3 +62,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist-installer/*.exe
+
+# Build trigger: Live 11 inspection, snapshots, and master support.
