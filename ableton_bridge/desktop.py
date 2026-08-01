@@ -68,50 +68,50 @@ class BridgeDesktop:
     def __init__(self) -> None:
         self.root = Tk()
         self.root.title(APP_NAME)
-        self.root.geometry("780x520")
-        self.root.minsize(680, 440)
-        self.root.configure(bg="#111315")
+        self.root.geometry("820x540")
+        self.root.minsize(700, 460)
+        self.root.configure(bg="#080a0b")
         self.process: subprocess.Popen[str] | None = None
-        self.status = StringVar(value="Bridge detenido")
-        self.receiver = StringVar(value="Esperando conexión con Ableton Live 11")
+        self.status = StringVar(value="Bridge stopped")
+        self.receiver = StringVar(value="Waiting for Ableton Live 11")
         self.config_path = ensure_config()
         self._build()
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         threading.Thread(target=self._monitor, daemon=True).start()
 
     def _build(self) -> None:
-        header = Frame(self.root, bg="#111315", padx=24, pady=22)
+        header = Frame(self.root, bg="#080a0b", padx=26, pady=22)
         header.pack(fill=X)
-        Label(header, text="ABLETON AI CONTROL BRIDGE", fg="#63f5bd", bg="#111315",
+        Label(header, text="TITAN · ABLETON PRODUCTION SYSTEM", fg="#61f2b5", bg="#080a0b",
               font=("Segoe UI", 18, "bold")).pack(anchor="w")
-        Label(header, text="Windows + Ableton Live 11 · Darksco autonomous production",
-              fg="#aeb7bd", bg="#111315", font=("Segoe UI", 10)).pack(anchor="w", pady=(5, 0))
+        Label(header, text="Live 11 bridge · 12 stems · 4 returns · canonical production console",
+              fg="#88949b", bg="#080a0b", font=("Segoe UI", 10)).pack(anchor="w", pady=(5, 0))
 
-        state = Frame(self.root, bg="#1a1e21", padx=20, pady=16)
-        state.pack(fill=X, padx=24, pady=(0, 14))
-        Label(state, textvariable=self.status, fg="#ffffff", bg="#1a1e21",
+        state = Frame(self.root, bg="#14191c", padx=20, pady=16)
+        state.pack(fill=X, padx=26, pady=(0, 14))
+        Label(state, textvariable=self.status, fg="#ffffff", bg="#14191c",
               font=("Segoe UI", 14, "bold")).pack(anchor="w")
-        Label(state, textvariable=self.receiver, fg="#8d9aa2", bg="#1a1e21",
+        Label(state, textvariable=self.receiver, fg="#88949b", bg="#14191c",
               font=("Segoe UI", 10)).pack(anchor="w", pady=(5, 0))
 
-        actions = Frame(self.root, bg="#111315", padx=24)
+        actions = Frame(self.root, bg="#080a0b", padx=26)
         actions.pack(fill=X)
-        Button(actions, text="INICIAR BRIDGE", command=self.start, bg="#63f5bd", fg="#08110d",
+        Button(actions, text="START BRIDGE", command=self.start, bg="#61f2b5", fg="#07120d",
                activebackground="#91ffd5", relief="flat", padx=18, pady=10).pack(side=LEFT)
-        Button(actions, text="DETENER", command=self.stop, bg="#292f33", fg="#ffffff",
-               activebackground="#3a4348", relief="flat", padx=18, pady=10).pack(side=LEFT, padx=8)
-        Button(actions, text="ABRIR CONTROL IA", command=self.open_ui, bg="#f4b942", fg="#15100a",
+        Button(actions, text="STOP", command=self.stop, bg="#20262a", fg="#ffffff",
+               activebackground="#30383d", relief="flat", padx=18, pady=10).pack(side=LEFT, padx=8)
+        Button(actions, text="OPEN TITAN CONSOLE", command=self.open_ui, bg="#f1b84b", fg="#171005",
                activebackground="#ffd477", relief="flat", padx=18, pady=10).pack(side=LEFT)
-        Button(actions, text="DIAGNÓSTICO", command=self.diagnose, bg="#292f33", fg="#ffffff",
-               activebackground="#3a4348", relief="flat", padx=18, pady=10).pack(side=RIGHT)
+        Button(actions, text="DIAGNOSTICS", command=self.diagnose, bg="#20262a", fg="#ffffff",
+               activebackground="#30383d", relief="flat", padx=18, pady=10).pack(side=RIGHT)
 
-        Label(self.root, text="Actividad", fg="#d7dde1", bg="#111315",
-              font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=24, pady=(20, 6))
-        self.log = Text(self.root, bg="#0b0d0e", fg="#b9c5cb", insertbackground="#ffffff",
+        Label(self.root, text="Activity", fg="#d7dde1", bg="#080a0b",
+              font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=26, pady=(20, 6))
+        self.log = Text(self.root, bg="#0b0e10", fg="#b9c5cb", insertbackground="#ffffff",
                         relief="flat", font=("Consolas", 9), padx=12, pady=12)
-        self.log.pack(fill=BOTH, expand=True, padx=24, pady=(0, 20))
-        self.write("Configuración: " + str(self.config_path))
-        self.write("Pulsa INICIAR BRIDGE y mantén el receptor cargado en Live 11.")
+        self.log.pack(fill=BOTH, expand=True, padx=26, pady=(0, 20))
+        self.write("Configuration: " + str(self.config_path))
+        self.write("Start the bridge, keep the Receiver loaded in Live 11, then open Titan Console.")
 
     def write(self, message: str) -> None:
         stamp = time.strftime("%H:%M:%S")
@@ -119,7 +119,7 @@ class BridgeDesktop:
 
     def start(self) -> None:
         if read_health():
-            self.write("El bridge ya está funcionando.")
+            self.write("Bridge is already running.")
             self.open_ui()
             return
         if self.process and self.process.poll() is None:
@@ -127,13 +127,13 @@ class BridgeDesktop:
         if getattr(sys, "frozen", False):
             command = [sys.executable, "--server", "--config", str(self.config_path)]
         else:
-            command = [sys.executable, "-m", "ableton_bridge.server", "--config", str(self.config_path)]
+            command = [sys.executable, "-m", "ableton_bridge.gui_server", "--config", str(self.config_path)]
         flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         self.process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                         text=True, creationflags=flags)
         threading.Thread(target=self._read_process, daemon=True).start()
-        self.status.set("Iniciando bridge…")
-        self.write("Iniciando motor local en 127.0.0.1:8765")
+        self.status.set("Starting bridge…")
+        self.write("Starting local engine on 127.0.0.1:8765")
 
     def _read_process(self) -> None:
         if not self.process or not self.process.stdout:
@@ -149,9 +149,9 @@ class BridgeDesktop:
             except subprocess.TimeoutExpired:
                 self.process.kill()
         self.process = None
-        self.status.set("Bridge detenido")
-        self.receiver.set("Esperando conexión con Ableton Live 11")
-        self.write("Bridge detenido.")
+        self.status.set("Bridge stopped")
+        self.receiver.set("Waiting for Ableton Live 11")
+        self.write("Bridge stopped.")
 
     def open_ui(self) -> None:
         if not read_health():
@@ -166,24 +166,24 @@ class BridgeDesktop:
     def diagnose(self) -> None:
         health = read_health()
         if not health:
-            self.write("ERROR: el bridge no responde. Pulsa INICIAR BRIDGE.")
+            self.write("ERROR: bridge is not responding. Press START BRIDGE.")
             return
-        self.write(f"OK: bridge v{health.get('version')} · {len(health.get('allowed_commands', []))} comandos")
-        self.write("OK: autenticación local activa" if health.get("authentication_required") else "AVISO: autenticación desactivada")
-        self.write("OK: Ableton confirmó comandos" if health.get("max_receiver_seen") else "PENDIENTE: sin confirmación del receptor de Ableton")
+        self.write(f"OK: bridge v{health.get('version')} · {len(health.get('allowed_commands', []))} commands")
+        self.write("OK: local authentication enabled" if health.get("authentication_required") else "WARNING: authentication disabled")
+        self.write("OK: Ableton acknowledged commands" if health.get("max_receiver_seen") else "WAITING: no ACK from Ableton Receiver")
 
     def _monitor(self) -> None:
         while True:
             health = read_health()
             if health:
-                self.status.set(f"Bridge activo · v{health.get('version', '?')}")
+                self.status.set(f"Bridge active · v{health.get('version', '?')}")
                 if health.get("max_receiver_seen"):
-                    self.receiver.set("Ableton conectado · receptor confirmado")
+                    self.receiver.set("Ableton connected · Receiver acknowledged")
                 else:
-                    self.receiver.set("Bridge activo · abre Live 11 y carga AI Control Bridge Receiver")
+                    self.receiver.set("Bridge active · load AI Control Bridge Receiver in Live 11")
             elif not self.process or self.process.poll() is not None:
-                self.status.set("Bridge detenido")
-                self.receiver.set("Esperando conexión con Ableton Live 11")
+                self.status.set("Bridge stopped")
+                self.receiver.set("Waiting for Ableton Live 11")
             time.sleep(1.5)
 
     def close(self) -> None:
@@ -197,7 +197,7 @@ class BridgeDesktop:
 def main() -> None:
     if "--server" in sys.argv:
         sys.argv.remove("--server")
-        from .server import main as server_main
+        from .gui_server import main as server_main
         server_main()
         return
     BridgeDesktop().run()
