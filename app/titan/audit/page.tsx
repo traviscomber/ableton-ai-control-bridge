@@ -2,20 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-type CommandRecord = {
-  id: string;
-  status: string;
-  result?: unknown;
-  error?: string | null;
-};
-
-type Device = {
-  index: number;
-  name: string;
-  class_name?: string;
-  parameter_count?: number;
-};
-
+type CommandRecord = { id: string; status: string; result?: unknown; error?: string | null };
+type Device = { index: number; name: string; class_name?: string; parameter_count?: number };
 type Parameter = {
   index: number;
   name: string;
@@ -26,16 +14,9 @@ type Parameter = {
   is_quantized?: boolean;
   is_enabled?: boolean;
   value_items?: string[];
+  duplicate_name?: boolean;
 };
-
-type Issue = {
-  target: string;
-  device?: string;
-  parameter?: string;
-  code: string;
-  detail: string;
-};
-
+type Issue = { target: string; device?: string; parameter?: string; code: string; detail: string };
 type AuditSummary = {
   tracks: number;
   returns: number;
@@ -50,15 +31,13 @@ type AuditSummary = {
 const BRIDGE = "http://127.0.0.1:8765";
 const POLL_MS = 180;
 const COMMAND_TIMEOUT_MS = 12000;
+const PAGE_SIZE = 16;
 const EPSILON = 1e-6;
-
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function jsonFetch(url: string, init?: RequestInit) {
   const response = await fetch(url, { cache: "no-store", ...init });
-  if (!response.ok) {
-    throw new Error(`${response.status} ${response.statusText}`);
-  }
+  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
   return response.json();
 }
 
@@ -70,7 +49,6 @@ async function runCommand(payload: Record<string, unknown>): Promise<unknown> {
   });
   const initial = submitted?.command as CommandRecord | undefined;
   if (!initial?.id) throw new Error(`Bridge did not return command id for ${payload.type}`);
-
   const deadline = Date.now() + COMMAND_TIMEOUT_MS;
   while (Date.now() < deadline) {
     const state = await jsonFetch(`${BRIDGE}/api/commands/${initial.id}`);
@@ -118,16 +96,54 @@ function validateParameter(target: string, device: string, parameter: Parameter)
   return issues;
 }
 
+async function readPagedParameters(
+  targetKind: "track" | "return" | "master",
+  selector: Record<string, unknown>,
+  device: Device,
+): Promise<Parameter[]> {
+  const parameters: Parameter[] = [];
+  let start = 0;
+  let expectedCount: number | null = null;
+  for (;;) {
+    const page = (await runCommand({
+      type: "inspect_device_parameters_page",
+      target_kind: targetKind,
+      ...selector,
+      device_index: device.index,
+      start,
+      limit: PAGE_SIZE,
+    })) as {
+      device_index?: number;
+      device?: string;
+      parameter_count?: number;
+      next_start?: number | null;
+      parameters?: Parameter[];
+    };
+    if (page.device_index !== device.index) throw new Error(`Device index changed during audit: ${device.index} → ${page.device_index}`);
+    if (page.device !== device.name) throw new Error(`Device name changed during audit: ${device.name} → ${page.device}`);
+    if (expectedCount === null) expectedCount = Number(page.parameter_count ?? 0);
+    if (Number(page.parameter_count ?? 0) !== expectedCount) throw new Error("Device parameter count changed during audit");
+    const slice = Array.isArray(page.parameters) ? page.parameters : [];
+    parameters.push(...slice);
+    if (page.next_start === null || page.next_start === undefined) break;
+    if (!Number.isInteger(page.next_start) || page.next_start <= start) throw new Error("Invalid next_start returned by receiver");
+    start = page.next_start;
+  }
+  if (expectedCount !== null && parameters.length !== expectedCount) {
+    throw new Error(`Paged inventory incomplete: expected ${expectedCount}, received ${parameters.length}`);
+  }
+  return parameters;
+}
+
 export default function TitanChainAuditPage() {
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState("Waiting");
   const [summary, setSummary] = useState<AuditSummary | null>(null);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [log, setLog] = useState<string[]>([]);
+  const [pagedMode, setPagedMode] = useState(false);
 
-  const append = useCallback((line: string) => {
-    setLog((current) => [...current.slice(-159), line]);
-  }, []);
+  const append = useCallback((line: string) => setLog((current) => [...current.slice(-199), line]), []);
 
   const auditTarget = useCallback(async (
     targetKind: "track" | "return" | "master",
@@ -135,6 +151,7 @@ export default function TitanChainAuditPage() {
     label: string,
     counters: AuditSummary,
     foundIssues: Issue[],
+    pagedSupported: boolean,
   ) => {
     let chain: { devices?: Device[] } | undefined;
     try {
@@ -153,40 +170,39 @@ export default function TitanChainAuditPage() {
     for (const device of devices) counts.set(device.name, (counts.get(device.name) || 0) + 1);
 
     for (const device of devices) {
-      if ((counts.get(device.name) || 0) > 1) {
+      const duplicate = (counts.get(device.name) || 0) > 1;
+      if (duplicate) {
         counters.duplicateDevices += 1;
-        counters.skippedDevices += 1;
-        foundIssues.push({ target: label, device: device.name, code: "DUPLICATE_DEVICE_NAME", detail: `device index ${device.index}; rename devices uniquely before semantic binding` });
-        append(`${label} / ${device.name}: skipped duplicate name`);
-        continue;
+        foundIssues.push({ target: label, device: device.name, code: "DUPLICATE_DEVICE_NAME", detail: `device index ${device.index}; name-based writes are blocked until uniquely addressed` });
+        if (!pagedSupported) {
+          counters.skippedDevices += 1;
+          append(`${label} / ${device.name}[${device.index}]: skipped duplicate on legacy receiver`);
+          continue;
+        }
       }
 
       try {
-        const inspected = (await runCommand({
-          type: "inspect_device_parameters",
-          target_kind: targetKind,
-          ...selector,
-          device: device.name,
-        })) as { parameters?: Parameter[] };
-        const parameters = Array.isArray(inspected?.parameters) ? inspected.parameters : [];
+        const parameters = pagedSupported
+          ? await readPagedParameters(targetKind, selector, device)
+          : (((await runCommand({ type: "inspect_device_parameters", target_kind: targetKind, ...selector, device: device.name })) as { parameters?: Parameter[] }).parameters || []);
         counters.parameters += parameters.length;
         const parameterNames = new Map<string, number>();
         for (const parameter of parameters) {
           parameterNames.set(parameter.name, (parameterNames.get(parameter.name) || 0) + 1);
-          foundIssues.push(...validateParameter(label, device.name, parameter));
+          foundIssues.push(...validateParameter(label, `${device.name}[${device.index}]`, parameter));
         }
         for (const [name, count] of parameterNames.entries()) {
           if (count > 1) {
-            foundIssues.push({ target: label, device: device.name, parameter: name, code: "DUPLICATE_PARAMETER_NAME", detail: `${count} parameters share this exact name` });
+            foundIssues.push({ target: label, device: `${device.name}[${device.index}]`, parameter: name, code: "DUPLICATE_PARAMETER_NAME", detail: `${count} parameters share this exact name; index addressing required` });
           }
         }
-        append(`${label} / ${device.name}: ${parameters.length} parameters`);
+        append(`${label} / ${device.name}[${device.index}]: ${parameters.length} parameters${pagedSupported ? " · paged" : ""}`);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         if (message.startsWith("TIMEOUT")) counters.timeouts += 1;
         counters.skippedDevices += 1;
-        foundIssues.push({ target: label, device: device.name, code: "PARAMETER_READ_FAILED", detail: message });
-        append(`${label} / ${device.name}: parameter read failed — ${message}`);
+        foundIssues.push({ target: label, device: `${device.name}[${device.index}]`, code: "PARAMETER_READ_FAILED", detail: message });
+        append(`${label} / ${device.name}[${device.index}]: parameter read failed — ${message}`);
       }
     }
   }, [append]);
@@ -199,22 +215,16 @@ export default function TitanChainAuditPage() {
     setIssues([]);
     setLog([]);
 
-    const counters: AuditSummary = {
-      tracks: 0,
-      returns: 0,
-      devices: 0,
-      parameters: 0,
-      duplicateDevices: 0,
-      skippedDevices: 0,
-      timeouts: 0,
-      issues: 0,
-    };
+    const counters: AuditSummary = { tracks: 0, returns: 0, devices: 0, parameters: 0, duplicateDevices: 0, skippedDevices: 0, timeouts: 0, issues: 0 };
     const foundIssues: Issue[] = [];
 
     try {
       const health = await jsonFetch(`${BRIDGE}/health`);
       if (!health?.ok) throw new Error("Bridge health is not OK");
-      append(`bridge ${health.version || "unknown"} · ACK ${health.max_receiver_seen ? "yes" : "no"}`);
+      const allowed = Array.isArray(health.allowed_commands) ? health.allowed_commands : [];
+      const pagedSupported = allowed.includes("inspect_device_parameters_page");
+      setPagedMode(pagedSupported);
+      append(`bridge ${health.version || "unknown"} · ACK ${health.max_receiver_seen ? "yes" : "no"} · ${pagedSupported ? "paged inventory" : "legacy inventory"}`);
 
       setStatus("Reading track topology");
       const tracksResult = (await runCommand({ type: "list_tracks" })) as { tracks?: Array<{ index: number; name: string }> };
@@ -227,17 +237,15 @@ export default function TitanChainAuditPage() {
       for (let i = 0; i < tracks.length; i += 1) {
         const track = tracks[i];
         setStatus(`Auditing track ${i + 1}/${tracks.length}: ${track.name}`);
-        await auditTarget("track", { track: track.index }, `TRACK ${track.index} · ${track.name}`, counters, foundIssues);
+        await auditTarget("track", { track: track.index }, `TRACK ${track.index} · ${track.name}`, counters, foundIssues, pagedSupported);
       }
-
       for (let i = 0; i < returns.length; i += 1) {
         const ret = returns[i];
         setStatus(`Auditing return ${i + 1}/${returns.length}: ${ret.name}`);
-        await auditTarget("return", { return: ret.index }, `RETURN ${ret.index} · ${ret.name}`, counters, foundIssues);
+        await auditTarget("return", { return: ret.index }, `RETURN ${ret.index} · ${ret.name}`, counters, foundIssues, pagedSupported);
       }
-
       setStatus("Auditing master chain");
-      await auditTarget("master", {}, "MASTER", counters, foundIssues);
+      await auditTarget("master", {}, "MASTER", counters, foundIssues, pagedSupported);
 
       counters.issues = foundIssues.length;
       setIssues(foundIssues);
@@ -257,7 +265,6 @@ export default function TitanChainAuditPage() {
 
   useEffect(() => {
     void runAudit();
-    // Intentionally run once on mount; the button can re-run manually.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -268,43 +275,26 @@ export default function TitanChainAuditPage() {
       <div style={{ maxWidth: 1480, margin: "0 auto" }}>
         <div style={{ color: "#63f5bd", fontSize: 12, letterSpacing: "0.16em", marginBottom: 8 }}>TITAN · READ-ONLY CHAIN AUDIT</div>
         <h1 style={{ fontSize: 30, margin: 0 }}>Live Set Parameter Integrity</h1>
-        <p style={{ color: "#95a5a0", maxWidth: 860 }}>Reads every visible track, return, master device and parameter from the local Ableton bridge. It does not write to Live.</p>
-
-        <div style={{ display: "flex", gap: 10, alignItems: "center", margin: "20px 0" }}>
-          <button disabled={running} onClick={() => void runAudit()} style={{ border: "1px solid #2d6f58", background: running ? "#16201d" : "#63f5bd", color: running ? "#8aa099" : "#07110e", padding: "10px 16px", fontWeight: 800, cursor: running ? "default" : "pointer" }}>
-            {running ? "AUDITING…" : "RUN FULL AUDIT"}
-          </button>
+        <p style={{ color: "#95a5a0", maxWidth: 920 }}>Reads every track, return, master device and parameter from the local Ableton bridge. Paged mode keeps large devices such as Operator and EQ Eight below the ACK transport limit. It never writes to Live.</p>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", margin: "20px 0", flexWrap: "wrap" }}>
+          <button disabled={running} onClick={() => void runAudit()} style={{ border: "1px solid #2d6f58", background: running ? "#16201d" : "#63f5bd", color: running ? "#8aa099" : "#07110e", padding: "10px 16px", fontWeight: 800, cursor: running ? "default" : "pointer" }}>{running ? "AUDITING…" : "RUN FULL AUDIT"}</button>
           <span style={{ border: `1px solid ${pass ? "#2d6f58" : "#735d24"}`, padding: "8px 12px", color: pass ? "#63f5bd" : "#f4bd4d" }}>{status}</span>
+          <span style={{ border: "1px solid #24332f", padding: "8px 12px", color: pagedMode ? "#63f5bd" : "#f4bd4d" }}>{pagedMode ? "PAGED INVENTORY" : "LEGACY INVENTORY"}</span>
         </div>
-
         {summary && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(120px, 1fr))", gap: 8, marginBottom: 18 }}>
-            {([
-              ["Tracks", summary.tracks], ["Returns", summary.returns], ["Devices", summary.devices], ["Parameters", summary.parameters],
-              ["Duplicates", summary.duplicateDevices], ["Timeouts", summary.timeouts], ["Issues", summary.issues],
-            ] as Array<[string, number]>).map(([label, value]) => (
-              <div key={label} style={{ border: "1px solid #24332f", background: "#0d1412", padding: 12 }}>
-                <div style={{ color: "#7f918b", fontSize: 11 }}>{label}</div>
-                <div style={{ fontSize: 22, fontWeight: 800 }}>{value}</div>
-              </div>
+            {([["Tracks", summary.tracks], ["Returns", summary.returns], ["Devices", summary.devices], ["Parameters", summary.parameters], ["Duplicates", summary.duplicateDevices], ["Timeouts", summary.timeouts], ["Issues", summary.issues]] as Array<[string, number]>).map(([label, value]) => (
+              <div key={label} style={{ border: "1px solid #24332f", background: "#0d1412", padding: 12 }}><div style={{ color: "#7f918b", fontSize: 11 }}>{label}</div><div style={{ fontSize: 22, fontWeight: 800 }}>{value}</div></div>
             ))}
           </div>
         )}
-
         <section style={{ border: "1px solid #24332f", background: "#0a100e", padding: 14, marginBottom: 14 }}>
           <h2 style={{ fontSize: 15, marginTop: 0 }}>Issues</h2>
           {issues.length === 0 ? <div style={{ color: "#63f5bd" }}>No parameter integrity issues detected so far.</div> : issues.map((issue, index) => (
-            <div key={`${issue.code}-${index}`} style={{ borderTop: index ? "1px solid #1c2824" : undefined, padding: "8px 0" }}>
-              <strong>{issue.code}</strong> · {issue.target}{issue.device ? ` · ${issue.device}` : ""}{issue.parameter ? ` · ${issue.parameter}` : ""}
-              <div style={{ color: "#a9b5b1", marginTop: 2 }}>{issue.detail}</div>
-            </div>
+            <div key={`${issue.code}-${index}`} style={{ borderTop: index ? "1px solid #1c2824" : undefined, padding: "8px 0" }}><strong>{issue.code}</strong> · {issue.target}{issue.device ? ` · ${issue.device}` : ""}{issue.parameter ? ` · ${issue.parameter}` : ""}<div style={{ color: "#a9b5b1", marginTop: 2 }}>{issue.detail}</div></div>
           ))}
         </section>
-
-        <section style={{ border: "1px solid #24332f", background: "#0a100e", padding: 14 }}>
-          <h2 style={{ fontSize: 15, marginTop: 0 }}>Audit log</h2>
-          <pre style={{ whiteSpace: "pre-wrap", margin: 0, color: "#a9b5b1", fontSize: 12, maxHeight: 520, overflow: "auto" }}>{log.join("\n") || "No events yet."}</pre>
-        </section>
+        <section style={{ border: "1px solid #24332f", background: "#0a100e", padding: 14 }}><h2 style={{ fontSize: 15, marginTop: 0 }}>Audit log</h2><pre style={{ whiteSpace: "pre-wrap", margin: 0, color: "#a9b5b1", fontSize: 12, maxHeight: 620, overflow: "auto" }}>{log.join("\n") || "No events yet."}</pre></section>
       </div>
     </main>
   );
