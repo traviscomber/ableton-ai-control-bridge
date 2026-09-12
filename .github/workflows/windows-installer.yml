@@ -63,4 +63,4 @@ jobs:
         with:
           files: dist-installer/*.exe
 
-# Build trigger: Live 11 inspection, snapshots, and master support.
+# Build trigger: Channel Intelligence installer refresh after receiver test-gate fix.
