@@ -15,6 +15,9 @@ if ($LASTEXITCODE -ne 0) { throw "PyInstaller installation failed." }
 & $Python "windows\patch_live11_notes.py"
 if ($LASTEXITCODE -ne 0) { throw "Live 11 note API patch failed." }
 
+& $Python "windows\build_field_amxd.py"
+if ($LASTEXITCODE -ne 0) { throw "DARKSCO FIELD AMXD build failed." }
+
 Remove-Item "$Root\build\AbletonAIControlBridge" -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item "$Root\dist\AbletonAIControlBridge" -Recurse -Force -ErrorAction SilentlyContinue
 
