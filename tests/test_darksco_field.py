@@ -34,9 +34,9 @@ def test_field_compiles_semantic_controls_to_existing_bridge_contract():
     ]
 
 
-def test_field_accepts_track_name_target():
-    command = compile_field_state({"texture": 0.5}, track_name="FIELD")[0]
-    assert command["track_name"] == "FIELD"
+def test_field_accepts_numeric_track_target():
+    command = compile_field_state({"texture": 0.5}, track=2)[0]
+    assert command["track"] == 2
     assert command["parameter"] == "Texture"
 
 
