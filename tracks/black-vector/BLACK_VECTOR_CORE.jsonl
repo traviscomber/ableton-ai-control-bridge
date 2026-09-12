@@ -1,0 +1,16 @@
+{"type":"set_tempo","bpm":134}
+{"type":"set_time_signature","numerator":4,"denominator":4}
+{"type":"create_midi_track","name":"BV BASS","index":0}
+{"type":"create_midi_track","name":"BV MOTIF","index":1}
+{"type":"create_midi_clip","track":0,"clip":0,"bar":1,"beats":8,"notes":[{"pitch":29,"start":0.5,"duration":0.38,"velocity":105},{"pitch":36,"start":1.75,"duration":0.28,"velocity":88},{"pitch":29,"start":3.25,"duration":0.34,"velocity":98},{"pitch":29,"start":5.5,"duration":0.3,"velocity":101},{"pitch":36,"start":6.75,"duration":0.24,"velocity":84}]}
+{"type":"set_clip_name","track":0,"clip":0,"name":"BV BASS CORE"}
+{"type":"create_midi_clip","track":0,"clip":1,"bar":1,"beats":8,"notes":[{"pitch":29,"start":0.5,"duration":0.38,"velocity":105},{"pitch":29,"start":3.25,"duration":0.46,"velocity":98},{"pitch":29,"start":5.5,"duration":0.3,"velocity":101},{"pitch":36,"start":6.75,"duration":0.24,"velocity":84}]}
+{"type":"set_clip_name","track":0,"clip":1,"name":"BV BASS VAR A"}
+{"type":"create_midi_clip","track":0,"clip":2,"bar":1,"beats":8,"notes":[{"pitch":29,"start":0.5,"duration":0.38,"velocity":105},{"pitch":36,"start":1.75,"duration":0.28,"velocity":88},{"pitch":29,"start":3.25,"duration":0.34,"velocity":98},{"pitch":29,"start":5.75,"duration":0.3,"velocity":101}]}
+{"type":"set_clip_name","track":0,"clip":2,"name":"BV BASS VAR B"}
+{"type":"create_midi_clip","track":1,"clip":0,"bar":1,"beats":8,"notes":[{"pitch":72,"start":0.75,"duration":0.24,"velocity":108},{"pitch":66,"start":1.5,"duration":0.36,"velocity":92}]}
+{"type":"set_clip_name","track":1,"clip":0,"name":"BV MOTIF REVEAL"}
+{"type":"create_midi_clip","track":1,"clip":1,"bar":1,"beats":8,"notes":[{"pitch":72,"start":0.75,"duration":0.24,"velocity":108},{"pitch":66,"start":1.5,"duration":0.36,"velocity":92},{"pitch":68,"start":3.25,"duration":0.22,"velocity":86}]}
+{"type":"set_clip_name","track":1,"clip":1,"name":"BV MOTIF OPEN"}
+{"type":"create_midi_clip","track":1,"clip":2,"bar":1,"beats":8,"notes":[{"pitch":72,"start":0.75,"duration":0.24,"velocity":108},{"pitch":66,"start":1.5,"duration":0.36,"velocity":92},{"pitch":68,"start":3.25,"duration":0.22,"velocity":86},{"pitch":65,"start":6.75,"duration":0.5,"velocity":100}]}
+{"type":"set_clip_name","track":1,"clip":2,"name":"BV MOTIF CLIMAX"}
