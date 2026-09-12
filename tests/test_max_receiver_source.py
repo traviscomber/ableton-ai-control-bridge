@@ -63,3 +63,55 @@ def test_midi_clip_reports_resolved_track() -> None:
     assert re.search(r"(?:resolvedTrack|ti)\s*=\s*track\(c\)", implementation)
     assert re.search(r'"live_set tracks "\s*\+\s*(?:resolvedTrack|ti)\s*\+\s*" clip_slots "', implementation)
     assert re.search(r"track_ref\s*:\s*c\.track_ref\s*\|\|\s*null", implementation)
+
+
+def test_parameter_calculation_uses_live_reported_range_and_quantization() -> None:
+    source = receiver_source()
+    meta = function_block(source, "function parameterMeta", "function nativeFromNormalized")
+    conversion = function_block(source, "function nativeFromNormalized", "function normalizedValue")
+
+    assert 'numberProp(object,"min")' in meta
+    assert 'numberProp(object,"max")' in meta
+    assert 'numberProp(object,"value")' in meta
+    assert 'is_quantized' in meta
+    assert 'value_items' in meta
+    assert 'clamp01((value-min)/(max-min))' in meta
+    assert 'meta.min+(meta.max-meta.min)*n' in conversion
+    assert 'if(meta.is_quantized)' in conversion
+    assert 'Math.round' in conversion
+    assert 'clamp(native,meta.min,meta.max)' in conversion
+
+
+def test_parameter_writes_are_clamped_and_verified_by_exact_readback() -> None:
+    source = receiver_source()
+    setter = function_block(source, "function setNormalized", "function findTrackByName")
+    device_setter = function_block(source, "function setParameterOnPath", "function setDeviceParameter")
+
+    assert 'clamp01(normalized)' in setter
+    assert 'nativeFromNormalized(meta,requested)' in setter
+    assert 'p.set("value",native)' in setter
+    assert 'readback=parameterMeta(p,null)' in setter
+    assert 'readback_native:readback.value' in setter
+    assert 'readback_normalized:readback.normalized' in setter
+    assert 'if(!meta.is_enabled)' in device_setter
+
+
+def test_duplicate_device_or_parameter_names_never_silently_bind() -> None:
+    source = receiver_source()
+    device_lookup = function_block(source, "function findDevice", "function findParameter")
+    parameter_lookup = function_block(source, "function findParameter", "function setParameterOnPath")
+
+    assert 'matches.length>1' in device_lookup
+    assert 'Ambiguous duplicate device name' in device_lookup
+    assert 'matches.length>1' in parameter_lookup
+    assert 'Ambiguous duplicate parameter name' in parameter_lookup
+
+
+def test_device_snapshot_restore_verifies_topology_before_writing() -> None:
+    source = receiver_source()
+    restore = function_block(source, "function restoreDeviceSnapshot", "function acknowledge")
+
+    assert 'd.index!==s.device_index' in restore
+    assert 'count!==s.parameters.length' in restore
+    assert 'currentName!==saved.name' in restore
+    assert 'setNative' in restore
