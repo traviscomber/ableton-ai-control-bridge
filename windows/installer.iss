@@ -29,6 +29,9 @@ Source: "..\dist\AbletonAIControlBridge\*"; DestDir: "{app}"; Flags: ignoreversi
 Source: "..\max-for-live\AI Control Bridge Receiver.amxd"; DestDir: "{userdocs}\Ableton\User Library\Presets\MIDI Effects\Max MIDI Effect\Ableton AI Control Bridge"; Flags: ignoreversion
 Source: "..\max-for-live\AI-Control-Bridge-Receiver.maxpat"; DestDir: "{userdocs}\Ableton\User Library\Presets\MIDI Effects\Max MIDI Effect\Ableton AI Control Bridge"; Flags: ignoreversion
 Source: "..\max-for-live\bridge_receiver.js"; DestDir: "{userdocs}\Ableton\User Library\Presets\MIDI Effects\Max MIDI Effect\Ableton AI Control Bridge"; Flags: ignoreversion
+; FIELD remains Max source until it is opened/saved and runtime-certified as an .amxd in Live 11.
+Source: "..\max-for-live\darksco-field\DARKSCO-FIELD.maxpat"; DestDir: "{app}\max-for-live\darksco-field"; Flags: ignoreversion
+Source: "..\max-for-live\darksco-field\field_voice.maxpat"; DestDir: "{app}\max-for-live\darksco-field"; Flags: ignoreversion
 Source: "..\remote-scripts\AbletonAIControlBridge\*.py"; DestDir: "{userdocs}\Ableton\User Library\Remote Scripts\AbletonAIControlBridge"; Flags: ignoreversion
 Source: "..\examples\*"; DestDir: "{app}\examples"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\docs\*"; DestDir: "{app}\docs"; Flags: ignoreversion recursesubdirs createallsubdirs
