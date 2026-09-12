@@ -33,8 +33,18 @@ def test_repository_field_source_is_release_gate_ready() -> None:
     ]
 
 
-def test_field_main_source_declares_64_voice_poly() -> None:
-    assert "poly~ field_voice 64 @parallel 1" in _texts(MAIN)
+def test_field_main_source_declares_namespaced_64_voice_poly() -> None:
+    assert "poly~ field_voice 64 #0 @parallel 1" in _texts(MAIN)
+
+
+def test_field_control_buses_are_namespaced_per_device_instance() -> None:
+    main_texts = set(_texts(MAIN))
+    voice_texts = set(_texts(VOICE))
+    for control in ("density", "spread", "motion", "instability", "texture"):
+        assert f"send #0-{control}" in main_texts
+        assert f"receive #1-{control}" in voice_texts
+        assert f"send {control}" not in main_texts
+        assert f"receive {control}" not in voice_texts
 
 
 def test_field_voice_uses_only_builtin_source_dependencies() -> None:
