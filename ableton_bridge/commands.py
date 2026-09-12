@@ -56,6 +56,11 @@ COMMANDS: dict[str, CommandSpec] = {
     "list_returns": CommandSpec("list_returns", ()),
     "inspect_device_chain": CommandSpec("inspect_device_chain", ("target_kind",), ("track", "track_ref", "track_name", "return", "return_name")),
     "inspect_device_parameters": CommandSpec("inspect_device_parameters", ("target_kind", "device"), ("track", "track_ref", "track_name", "return", "return_name")),
+    "inspect_device_parameters_page": CommandSpec(
+        "inspect_device_parameters_page",
+        ("target_kind", "device_index", "start", "limit"),
+        ("track", "track_ref", "track_name", "return", "return_name"),
+    ),
     "inspect_clip": CommandSpec("inspect_clip", ("clip",), ("track", "track_ref", "track_name")),
     "inspect_master": CommandSpec("inspect_master", ()),
     "capture_mixer_snapshot": CommandSpec("capture_mixer_snapshot", (), ("snapshot_id",)),
@@ -76,7 +81,9 @@ TRACK_TARGET_COMMANDS = {
     "set_clip_color", "set_clip_loop", "set_track_send", "inspect_track", "inspect_clip",
 }
 RETURN_TARGET_COMMANDS = {"set_return_volume", "set_return_pan", "set_track_send", "set_return_device_parameter"}
-GENERIC_TARGET_COMMANDS = {"inspect_device_chain", "inspect_device_parameters", "capture_device_snapshot"}
+GENERIC_TARGET_COMMANDS = {
+    "inspect_device_chain", "inspect_device_parameters", "inspect_device_parameters_page", "capture_device_snapshot"
+}
 
 
 def validate_command(payload: dict[str, Any]) -> dict[str, Any]:
@@ -179,6 +186,13 @@ def _validate_ranges(payload: dict[str, Any]) -> None:
         _validate_device_parameter(payload)
     if command_type in {"inspect_device_parameters", "capture_device_snapshot"} and (not isinstance(payload["device"], str) or not payload["device"].strip()):
         raise CommandError("device must be a non-empty string.")
+    if command_type == "inspect_device_parameters_page":
+        if not isinstance(payload["device_index"], int) or payload["device_index"] < 0:
+            raise CommandError("device_index must be a zero-based integer.")
+        if not isinstance(payload["start"], int) or payload["start"] < 0:
+            raise CommandError("start must be a zero-based integer.")
+        if not isinstance(payload["limit"], int) or not 1 <= payload["limit"] <= 24:
+            raise CommandError("limit must be an integer between 1 and 24.")
     if command_type == "set_master_device_enabled":
         if not isinstance(payload["device"], str) or not payload["device"].strip():
             raise CommandError("device must be a non-empty string.")
