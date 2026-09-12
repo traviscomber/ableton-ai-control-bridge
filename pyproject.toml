@@ -14,6 +14,10 @@ ableton-bridge-check = "ableton_bridge.preflight:main"
 darksco-compile = "darksco.cli:main"
 darksco-library = "darksco.sound_library:main"
 darksco-discover = "darksco.catalog_scraper:main"
+darksco-field-check = "darksco.instruments.field_source:main"
+darksco-field = "darksco.field_cli:main"
+darksco-field-cue = "darksco.field_cue_runner:main"
+darksco-field-scene = "darksco.field_scene_runner:main"
 
 [build-system]
 requires = ["setuptools>=68"]

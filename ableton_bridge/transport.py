@@ -33,6 +33,39 @@ def decode_osc(packet: bytes) -> tuple[str, str]:
     return address, value
 
 
+def decode_ack_packet(raw: bytes) -> dict[str, Any] | None:
+    """Decode either OSC ACKs or native Max text ACKs.
+
+    Max's ``udpsend`` can emit a normal Max message such as::
+
+        /bridge_ack {"bridge_id":"...","ok":true}
+
+    while the Live Remote Script emits OSC.  Both use the same local ACK port,
+    so the bridge must accept both framings without assuming that every packet
+    beginning with ``/`` is binary OSC.
+    """
+    text: str
+    try:
+        address, text = decode_osc(raw)
+        if address != "/bridge_ack":
+            return None
+    except (UnicodeDecodeError, ValueError):
+        try:
+            text = raw.decode("utf-8").strip().rstrip(";").strip()
+        except UnicodeDecodeError:
+            return None
+        if text.startswith("/bridge_ack"):
+            text = text[len("/bridge_ack"):].strip()
+        if text.startswith("symbol "):
+            text = text[7:].strip()
+
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
 @dataclass
 class UdpTransport:
     host: str = "127.0.0.1"
@@ -60,14 +93,4 @@ class AckListener:
                 raw, _ = sock.recvfrom(65535)
             except socket.timeout:
                 return None
-        if raw.startswith(b"/"):
-            address, text = decode_osc(raw)
-            if address != "/bridge_ack":
-                return None
-        else:
-            # Backwards-compatible text framing for development tools.
-            text = raw.decode("utf-8").strip().rstrip(";").strip()
-            if text.startswith("symbol "):
-                text = text[7:]
-        payload = json.loads(text)
-        return payload if isinstance(payload, dict) else None
+        return decode_ack_packet(raw)

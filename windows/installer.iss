@@ -29,6 +29,9 @@ Source: "..\dist\AbletonAIControlBridge\*"; DestDir: "{app}"; Flags: ignoreversi
 Source: "..\max-for-live\AI Control Bridge Receiver.amxd"; DestDir: "{userdocs}\Ableton\User Library\Presets\MIDI Effects\Max MIDI Effect\Ableton AI Control Bridge"; Flags: ignoreversion
 Source: "..\max-for-live\AI-Control-Bridge-Receiver.maxpat"; DestDir: "{userdocs}\Ableton\User Library\Presets\MIDI Effects\Max MIDI Effect\Ableton AI Control Bridge"; Flags: ignoreversion
 Source: "..\max-for-live\bridge_receiver.js"; DestDir: "{userdocs}\Ableton\User Library\Presets\MIDI Effects\Max MIDI Effect\Ableton AI Control Bridge"; Flags: ignoreversion
+Source: "..\max-for-live\darksco-field\DARKSCO FIELD.amxd"; DestDir: "{userdocs}\Ableton\User Library\Presets\Instruments\Max Instrument\DARKSCO"; Flags: ignoreversion
+Source: "..\max-for-live\darksco-field\field_voice.maxpat"; DestDir: "{userdocs}\Ableton\User Library\Presets\Instruments\Max Instrument\DARKSCO"; Flags: ignoreversion
+Source: "..\max-for-live\darksco-field\DARKSCO-FIELD.maxpat"; DestDir: "{userdocs}\Ableton\User Library\Presets\Instruments\Max Instrument\DARKSCO\Source"; Flags: ignoreversion
 Source: "..\remote-scripts\AbletonAIControlBridge\*.py"; DestDir: "{userdocs}\Ableton\User Library\Remote Scripts\AbletonAIControlBridge"; Flags: ignoreversion
 Source: "..\examples\*"; DestDir: "{app}\examples"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\docs\*"; DestDir: "{app}\docs"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -42,6 +45,7 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 
 [Run]
 Filename: "{app}\AbletonAIControlBridge.exe"; Description: "Launch Ableton AI Control Bridge"; Flags: nowait postinstall skipifsilent
+Filename: "explorer.exe"; Parameters: "{userdocs}\Ableton\User Library\Presets\Instruments\Max Instrument\DARKSCO"; Description: "Open DARKSCO FIELD installation folder"; Flags: postinstall skipifsilent unchecked
 
 [Code]
 function InitializeSetup(): Boolean;
