@@ -46,7 +46,6 @@ def validate_field_source(root: str | Path) -> dict[str, object]:
     if "plugout~" not in texts:
         raise FieldSourceError("Main patch must expose plugout~ stereo output.")
 
-    # Bare global buses would couple separate FIELD devices in one Live Set.
     for control in FIELD_PARAMETER_NAMES:
         lower = control.lower()
         if f"send {lower}" in texts:
@@ -92,9 +91,23 @@ def validate_field_source(root: str | Path) -> dict[str, object]:
 
     voice_boxes = [item.get("box", {}) for item in voice.get("boxes", [])]
     voice_texts = {box.get("text") for box in voice_boxes if isinstance(box.get("text"), str)}
-    for required in {"thispoly~", "mute 0", "cycle~", "noise~", "pan2~"}:
+    for required in {"thispoly~", "mute 0", "cycle~", "noise~", "line~"}:
         if required not in voice_texts:
             raise FieldSourceError(f"Voice patch missing required object/message: {required}")
+
+    if "pan2~" in voice_texts:
+        raise FieldSourceError("FIELD voices must use explicit core-MSP equal-power panning, not pan2~.")
+    left_pan = "expr sqrt((1. - $f1) * 0.5)"
+    right_pan = "expr sqrt((1. + $f1) * 0.5)"
+    if left_pan not in voice_texts or right_pan not in voice_texts:
+        raise FieldSourceError("FIELD voice is missing equal-power stereo gain expressions.")
+
+    density_gate = "expr if($i2 <= (1 + int($f1 * 63.)), 1., 0.)"
+    density_norm = "expr 1. / sqrt(1. + int($f1 * 63.))"
+    if density_gate not in voice_texts or density_norm not in voice_texts:
+        raise FieldSourceError("Density must control audible 1..64 voice population with normalization.")
+    if "pack 0. 35." not in voice_texts:
+        raise FieldSourceError("Density population gate must be smoothed before audio multiplication.")
 
     for control in FIELD_VOICE_CONTROLS:
         if f"receive {control}" in voice_texts:
@@ -110,6 +123,8 @@ def validate_field_source(root: str | Path) -> dict[str, object]:
         "voices": 64,
         "parameters": sorted(FIELD_PARAMETER_NAMES),
         "instance_scoped": True,
+        "density_population": True,
+        "core_equal_power_pan": True,
         "main": str(main_path),
         "voice": str(voice_path),
     }
