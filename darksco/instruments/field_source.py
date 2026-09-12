@@ -11,6 +11,7 @@ FIELD_PARAMETER_NAMES = {
     "Texture",
     "Space",
 }
+FIELD_VOICE_CONTROLS = {"density", "spread", "motion", "instability", "texture"}
 
 
 class FieldSourceError(ValueError):
@@ -28,12 +29,7 @@ def _load_patch(path: Path) -> dict:
 
 
 def validate_field_source(root: str | Path) -> dict[str, object]:
-    """Validate the source-level invariants required before opening Max for Live.
-
-    This is intentionally not a runtime or packaged-device validator. It only
-    proves that the repository source is internally consistent enough to enter
-    the Max/Ableton release gate.
-    """
+    """Validate source invariants before opening the device in Max for Live."""
     root = Path(root)
     main_path = root / "DARKSCO-FIELD.maxpat"
     voice_path = root / "field_voice.maxpat"
@@ -43,12 +39,22 @@ def validate_field_source(root: str | Path) -> dict[str, object]:
     boxes = [item.get("box", {}) for item in main.get("boxes", [])]
     texts = {box.get("text") for box in boxes if isinstance(box.get("text"), str)}
 
-    expected_poly = "poly~ field_voice 64 @parallel 1"
+    expected_poly = "poly~ field_voice 64 #0 @parallel 1"
     if expected_poly not in texts:
-        raise FieldSourceError(f"Expected 64-voice engine: {expected_poly}")
+        raise FieldSourceError(f"Expected isolated 64-voice engine: {expected_poly}")
 
     if "plugout~" not in texts:
         raise FieldSourceError("Main patch must expose plugout~ stereo output.")
+
+    # Bare global buses would couple separate FIELD devices in one Live Set.
+    for control in FIELD_PARAMETER_NAMES:
+        lower = control.lower()
+        if f"send {lower}" in texts:
+            raise FieldSourceError(f"Unscoped global FIELD send is forbidden: {lower}")
+    expected_sends = {f"send #0-{control}" for control in {c.lower() for c in FIELD_PARAMETER_NAMES}}
+    missing_sends = expected_sends - texts
+    if missing_sends:
+        raise FieldSourceError(f"Missing instance-scoped FIELD sends: {sorted(missing_sends)}")
 
     dependency_names = {
         entry.get("name")
@@ -90,10 +96,20 @@ def validate_field_source(root: str | Path) -> dict[str, object]:
         if required not in voice_texts:
             raise FieldSourceError(f"Voice patch missing required object/message: {required}")
 
+    for control in FIELD_VOICE_CONTROLS:
+        if f"receive {control}" in voice_texts:
+            raise FieldSourceError(f"Unscoped global FIELD receive is forbidden: {control}")
+        required = f"receive #1-{control}"
+        if required not in voice_texts:
+            raise FieldSourceError(f"Voice patch missing scoped control receive: {required}")
+    if any(text == "receive space" or text == "receive #1-space" for text in voice_texts):
+        raise FieldSourceError("Space is a parent wet-path control and must not be received by voices.")
+
     return {
         "status": "source-verified",
         "voices": 64,
         "parameters": sorted(FIELD_PARAMETER_NAMES),
+        "instance_scoped": True,
         "main": str(main_path),
         "voice": str(voice_path),
     }
