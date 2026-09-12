@@ -11,12 +11,11 @@
       {"box":{"id":"obj-4","maxclass":"newobj","text":"expr 36.7081 * pow(2., (($i1-1)%36)/12.)","patching_rect":[185,35,245,22]}},
       {"box":{"id":"obj-5","maxclass":"newobj","text":"cycle~","patching_rect":[185,75,50,22]}},
       {"box":{"id":"obj-6","maxclass":"newobj","text":"noise~","patching_rect":[280,75,45,22]}},
-      {"box":{"id":"obj-7","maxclass":"newobj","text":"receive density","patching_rect":[40,145,95,22]}},
-      {"box":{"id":"obj-8","maxclass":"newobj","text":"receive spread","patching_rect":[155,145,90,22]}},
-      {"box":{"id":"obj-9","maxclass":"newobj","text":"receive motion","patching_rect":[265,145,90,22]}},
-      {"box":{"id":"obj-10","maxclass":"newobj","text":"receive instability","patching_rect":[375,145,105,22]}},
-      {"box":{"id":"obj-11","maxclass":"newobj","text":"receive texture","patching_rect":[500,145,90,22]}},
-      {"box":{"id":"obj-12","maxclass":"newobj","text":"receive space","patching_rect":[610,145,85,22]}},
+      {"box":{"id":"obj-7","maxclass":"newobj","text":"receive #1-density","patching_rect":[40,145,115,22]}},
+      {"box":{"id":"obj-8","maxclass":"newobj","text":"receive #1-spread","patching_rect":[165,145,110,22]}},
+      {"box":{"id":"obj-9","maxclass":"newobj","text":"receive #1-motion","patching_rect":[285,145,110,22]}},
+      {"box":{"id":"obj-10","maxclass":"newobj","text":"receive #1-instability","patching_rect":[405,145,125,22]}},
+      {"box":{"id":"obj-11","maxclass":"newobj","text":"receive #1-texture","patching_rect":[540,145,110,22]}},
       {"box":{"id":"obj-13","maxclass":"newobj","text":"expr max(0.01, min(1., $f1))","patching_rect":[40,185,175,22]}},
       {"box":{"id":"obj-14","maxclass":"newobj","text":"expr 0.002 + ($f1 * 0.018)","patching_rect":[40,225,175,22]}},
       {"box":{"id":"obj-15","maxclass":"newobj","text":"sig~","patching_rect":[40,265,35,22]}},
@@ -41,7 +40,7 @@
       {"box":{"id":"obj-34","maxclass":"newobj","text":"expr 0.15 + (0.85 * (1. - abs((((($i1-1)%64)/63.)*2.)-1.)))","patching_rect":[40,305,400,22]}},
       {"box":{"id":"obj-35","maxclass":"newobj","text":"sig~","patching_rect":[95,350,35,22]}},
       {"box":{"id":"obj-36","maxclass":"newobj","text":"*~","patching_rect":[210,440,35,22]}},
-      {"box":{"id":"obj-37","maxclass":"comment","text":"DARKSCO FIELD voice: deterministic oscillator/noise layer. Instance index sets pitch and stereo position; global receives shape the field.","patching_rect":[40,585,790,20]}}
+      {"box":{"id":"obj-37","maxclass":"comment","text":"DARKSCO FIELD voice: deterministic oscillator/noise layer. Parent #0 is passed as poly~ argument #1 so control buses remain isolated per device instance.","patching_rect":[40,585,820,20]}}
     ],
     "lines": [
       {"patchline":{"source":["obj-2",0],"destination":["obj-3",0]}},
