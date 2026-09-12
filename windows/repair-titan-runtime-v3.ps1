@@ -11,9 +11,9 @@ if (-not $listener) {
     throw "No process is listening on 127.0.0.1:8765. Start the bridge once, then rerun this repair."
 }
 
-$pid = [int]$listener.OwningProcess
-$process = Get-CimInstance Win32_Process -Filter "ProcessId=$pid"
-Write-Host "Found listener PID $pid" -ForegroundColor Green
+$bridgePid = [int]$listener.OwningProcess
+$process = Get-CimInstance Win32_Process -Filter "ProcessId=$bridgePid"
+Write-Host "Found listener PID $bridgePid" -ForegroundColor Green
 if ($process) { Write-Host ([string]$process.CommandLine) -ForegroundColor DarkGray }
 
 $candidates = New-Object System.Collections.Generic.List[string]
@@ -90,7 +90,7 @@ if ($LASTEXITCODE -ne 0 -or ($probe | Select-Object -First 1) -ne "True") {
 }
 Write-Host "Interpreter probe: paged command present." -ForegroundColor Green
 
-try { Stop-Process -Id $pid -Force -ErrorAction Stop } catch { }
+try { Stop-Process -Id $bridgePid -Force -ErrorAction Stop } catch { }
 Start-Sleep -Milliseconds 800
 
 $arguments = @("-m", "ableton_bridge.server", "--config", $configPath)
