@@ -28,21 +28,22 @@ def compile_field_state(
     *,
     track: int | None = None,
     track_ref: str | None = None,
-    track_name: str | None = None,
     device: str = FIELD_DEVICE_NAME,
 ) -> list[dict[str, Any]]:
     """Compile musical FIELD controls into existing bridge commands.
 
-    This intentionally does not add a new bridge command. FIELD remains an
-    additive semantic layer over the stable set_device_parameter contract.
+    FIELD intentionally remains an additive semantic layer over the stable
+    ``set_device_parameter`` command. The public bridge boundary supports
+    numeric ``track`` or stable ``track_ref`` targeting; names are resolved
+    outside this compiler before commands are submitted.
     """
     if not isinstance(controls, Mapping) or not controls:
         raise FieldControlError("controls must be a non-empty mapping.")
 
-    targets = {"track": track, "track_ref": track_ref, "track_name": track_name}
+    targets = {"track": track, "track_ref": track_ref}
     selected = {key: value for key, value in targets.items() if value is not None}
     if len(selected) != 1:
-        raise FieldControlError("Provide exactly one of track, track_ref, or track_name.")
+        raise FieldControlError("Provide exactly one of track or track_ref.")
 
     unknown = sorted(set(controls) - set(FIELD_CONTROLS))
     if unknown:
