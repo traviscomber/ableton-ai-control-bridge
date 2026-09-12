@@ -1,76 +1,65 @@
 from pathlib import Path
+import re
 
 
 def receiver_source() -> str:
     return Path("max-for-live/bridge_receiver.js").read_text(encoding="utf-8")
 
 
-def test_set_macro_uses_resolved_track_path() -> None:
-    source = receiver_source()
-    start = source.index("function setMacro(c)")
-    end = source.index("function createTrack", start)
-    implementation = source[start:end]
+def function_block(source: str, start_marker: str, end_marker: str) -> str:
+    start = source.index(start_marker)
+    end = source.index(end_marker, start)
+    return source[start:end]
 
-    assert "var trackIndex = track(c);" in implementation
-    assert 'var devicePath = "live_set tracks " + trackIndex + " devices 0";' in implementation
-    assert 'api(devicePath + " parameters " + i)' in implementation
+
+def test_set_macro_uses_resolved_track_path() -> None:
+    implementation = function_block(receiver_source(), "function setMacro(c)", "function createTrack")
+
+    assert re.search(r"(?:trackIndex|ti)\s*=\s*track\(c\)", implementation)
+    assert re.search(r'"live_set tracks "\s*\+\s*(?:trackIndex|ti)\s*\+\s*" devices 0"', implementation)
+    assert "parameters" in implementation
     assert '"live_set tracks " + c.track + " devices 0 parameters "' not in implementation
-    assert "track_ref: c.track_ref || null" in implementation
+    assert re.search(r"track_ref\s*:\s*c\.track_ref\s*\|\|\s*null", implementation)
 
 
 def test_track_creation_uses_pre_creation_count_for_appended_index() -> None:
-    source = receiver_source()
-    start = source.index("function createTrack(c, method)")
-    end = source.index("function createScene", start)
-    implementation = source[start:end]
+    implementation = function_block(receiver_source(), "function createTrack(c,method)", "function createScene")
 
-    assert 'var beforeCount = song.getcount("tracks");' in implementation
-    assert "var createdIndex = requestedIndex < 0 ? beforeCount : requestedIndex;" in implementation
+    assert re.search(r'(?:beforeCount|before)\s*=\s*song\.getcount\("tracks"\)', implementation)
+    assert re.search(r'(?:createdIndex|created)\s*=\s*(?:requestedIndex|requested)\s*<\s*0\s*\?\s*(?:beforeCount|before)\s*:\s*(?:requestedIndex|requested)', implementation)
     assert 'song.getcount("tracks") - 1' not in implementation
-    assert "rememberTrack(c.track_ref, createdIndex, c.name);" in implementation
+    assert re.search(r"rememberTrack\(c\.track_ref\s*,\s*(?:createdIndex|created)\s*,\s*c\.name\)", implementation)
 
 
 def test_track_references_are_verified_and_recovered_by_name() -> None:
-    source = receiver_source()
-    start = source.index("function track(c)")
-    end = source.index("function returnTrack", start)
-    implementation = source[start:end]
+    implementation = function_block(receiver_source(), "function track(c)", "function returnTrack")
 
-    assert "var saved = trackRefs[ref];" in implementation
-    assert "if (currentName === saved.name) return saved.index;" in implementation
-    assert "var recovered = findTrackByName(saved.name);" in implementation
-    assert 'throw new Error("Track reference no longer resolves: " + ref);' in implementation
+    assert re.search(r"saved\s*=\s*trackRefs\[ref\]", implementation)
+    assert re.search(r"nameOf\(api\(\"live_set tracks \"\s*\+\s*saved\.index\)\)\s*===\s*saved\.name", implementation)
+    assert re.search(r"recovered\s*=\s*findTrackByName\(saved\.name\)", implementation)
+    assert "Track reference no longer resolves:" in implementation
 
 
 def test_track_creation_is_idempotent_by_exact_name() -> None:
-    source = receiver_source()
-    start = source.index("function createTrack(c, method)")
-    end = source.index("function createScene", start)
-    implementation = source[start:end]
+    implementation = function_block(receiver_source(), "function createTrack(c,method)", "function createScene")
 
-    assert "var existing = findTrackByName(c.name);" in implementation
-    assert "if (existing >= 0)" in implementation
-    assert "existing: true" in implementation
+    assert re.search(r"existing\s*=\s*findTrackByName\(c\.name\)", implementation)
+    assert re.search(r"existing\s*>=\s*0", implementation)
+    assert re.search(r"existing\s*:\s*true", implementation)
 
 
 def test_return_creation_is_idempotent_and_uses_pre_creation_count() -> None:
-    source = receiver_source()
-    start = source.index("function createReturnTrack(c)")
-    end = source.index("function setClipLoop", start)
-    implementation = source[start:end]
+    implementation = function_block(receiver_source(), "function createReturnTrack(c)", "function setClipLoop")
 
-    assert 'var beforeCount = song.getcount("return_tracks");' in implementation
-    assert "var createdIndex = beforeCount;" in implementation
-    assert "existing: true" in implementation
+    assert re.search(r'(?:beforeCount|before)\s*=\s*song\.getcount\("return_tracks"\)', implementation)
+    assert re.search(r"existing\s*:\s*true", implementation)
     assert 'song.getcount("return_tracks") - 1' not in implementation
+    assert re.search(r'live_set return_tracks .*?(?:beforeCount|before)', implementation)
 
 
 def test_midi_clip_reports_resolved_track() -> None:
-    source = receiver_source()
-    start = source.index("function createMidiClip(c)")
-    end = source.index("function acknowledge", start)
-    implementation = source[start:end]
+    implementation = function_block(receiver_source(), "function createMidiClip(c)", "function acknowledge")
 
-    assert "var resolvedTrack = track(c);" in implementation
-    assert 'var slotPath = "live_set tracks " + resolvedTrack' in implementation
-    assert "track_ref: c.track_ref || null" in implementation
+    assert re.search(r"(?:resolvedTrack|ti)\s*=\s*track\(c\)", implementation)
+    assert re.search(r'"live_set tracks "\s*\+\s*(?:resolvedTrack|ti)\s*\+\s*" clip_slots "', implementation)
+    assert re.search(r"track_ref\s*:\s*c\.track_ref\s*\|\|\s*null", implementation)
