@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from . import server
-from .webui import CONTROL_UI
+from .webui_pro import PRO_CONTROL_UI
 
 
 def main() -> None:
-    server.APPROVAL_UI = CONTROL_UI
+    server.APPROVAL_UI = PRO_CONTROL_UI
     server.main()
 
 
