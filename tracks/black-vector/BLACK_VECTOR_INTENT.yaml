@@ -1,0 +1,118 @@
+identity:
+  title: BLACK VECTOR
+  mode: NIGHT
+  bpm: 134
+  meter: 4/4
+  tonic: F
+  tonal_strategy: F Phrygian with controlled E natural approach into F
+  energy_target: physical, dark, forward, unresolved until peak
+  signature_constraint: sparse bass; upper motif carries tonal pressure; tonic resolution withheld until climax
+
+groove:
+  kick_role: stable four-on-floor authority except rupture
+  bass_relationship: sparse syncopated counter-rhythm; selected answers 6-9 ms late
+  hat_behavior: broken hierarchical 16ths early; progressively straighter toward climax
+  microtiming: role-specific only; no global randomization
+
+motif:
+  primary_cell: [C5, Gb4, Ab4, omitted_F4]
+  invariants: [down_up_contour, strong_first_attack, delayed_tonic_resolution]
+  allowed_transformations: [omission, rhythmic_displacement, rotation, octave_transfer, delayed_resolution]
+
+tonal_motion:
+  stable_degrees: [F, C]
+  tension_degrees: [Gb, Eb, Ab]
+  chromatic_policy: E natural only as deliberate approach into F at structural returns
+
+bass:
+  register: F1-C2
+  core_cell: [F1, rest, C2, F1]
+  articulation: short controlled notes
+  density: sparse
+  rule: never mirror every kick
+
+phrase_map:
+  - bars: 1-8
+    function: orientation
+    invariant: rhythmic shadow of motif
+    changes: [kick_only_foundation, no_full_pitch_reveal]
+    consequence: listener expects missing tonal identity
+  - bars: 9-16
+    function: identity_reveal
+    invariant: motif accent shape
+    changes: [introduce_C5_Gb4, keep_Ab_F_hidden]
+    consequence: b2 pressure established without resolution
+  - bars: 17-24
+    function: gravity
+    invariant: motif contour
+    changes: [bass_F1_C2_enters, pocket_established]
+    consequence: tonal gravity becomes physical
+  - bars: 25-32
+    function: first_answer
+    invariant: first_attack_accent
+    changes: [introduce_Ab4, rhythmic_answer, phrase_falls_to_Eb]
+    consequence: tension widens without tonic arrival
+  - bars: 33-40
+    function: development
+    invariant: motif_lineage
+    changes: [octave_transfer, percussion_dialogue, bass_removed_phrase_end]
+    consequence: expectation destabilized
+  - bars: 41-48
+    function: destabilization
+    invariant: kick_authority
+    changes: [intermittent_bass, brief_E_to_F_approach, reduced_swing]
+    consequence: points toward rupture without full payoff
+  - bars: 49-56
+    function: rupture
+    invariant: motif_identity
+    changes: [kick_and_bass_absent_first_four_bars, spatial_extension]
+    consequence: motif meaning exposed without low-end support
+  - bars: 57-64
+    function: reconstruction
+    invariant: rhythmic_cell
+    changes: [kick_returns_first, bass_returns_second, hats_straighten]
+    consequence: physical inevitability increases
+  - bars: 65-72
+    function: pre_peak
+    invariant: motif_accent_shape
+    changes: [motif_nearly_complete, bass_removed_bars_71_72]
+    consequence: maximum withheld resolution
+  - bars: 73-88
+    function: climax
+    invariant: core_identity
+    changes: [bass_full_return, straight_hat_engine, F_resolution, register_expansion]
+    consequence: rhythmic_and_tonal_tension_pay_off_together
+  - bars: 89-96
+    function: subtraction
+    invariant: low_end_gravity
+    changes: [lead_removed, motif_shadow_only]
+    consequence: peak gains scale through absence
+  - bars: 97-112
+    function: transformed_return
+    invariant: motif_lineage
+    changes: [motif_down_one_octave, first_passes_without_Gb, syncopated_groove_returns]
+    consequence: identity returns altered rather than copied
+  - bars: 113-120
+    function: exit
+    invariant: rhythmic_signature
+    changes: [progressive_removal_to_kick_percussion_fragment]
+    consequence: unresolved physical afterimage
+
+climax:
+  bars: 73-88
+  payoff: bass return + straight hats + tonic F resolution + register expansion
+  subtraction_before_peak: bass absent in bars 71-72
+  return_behavior: transformed, not copied
+
+humanization:
+  timing: correlated by role and phrase position
+  velocity: accent hierarchy first, small deviations second
+  intentional_imperfections: [missing_Ab_bar_32, late_bass_response_bar_39, omitted_snare_answer_before_break]
+
+constraints:
+  preserve: [stable_kick_authority, sparse_bass, delayed_tonic_resolution, motif_lineage]
+  forbid: [root_tracing_melody, permanent_offbeat_hat, random_velocity, global_timing_randomization, riser_only_transitions, exact_8_bar_copy_paste, full_chord_progression, loudness_only_climax]
+
+validation:
+  status: MUSICAL_STATIC
+  audible_qc: false
