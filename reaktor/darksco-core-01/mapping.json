@@ -1,0 +1,26 @@
+{
+  "ensemble": "DARKSCO CIRCUIT 0.1",
+  "host": "Reaktor 6",
+  "target": "Ableton Live 11 / TITAN",
+  "macros": [
+    {"index": 1, "name": "ENERGY", "range": [0.0, 1.0], "default": 0.52, "targets": ["drive", "osc_interaction", "vca_intensity"]},
+    {"index": 2, "name": "DENSITY", "range": [0.0, 1.0], "default": 0.40, "targets": ["voice_activity", "secondary_source", "grain_or_noise_mix"]},
+    {"index": 3, "name": "MOTION", "range": [0.0, 1.0], "default": 0.34, "targets": ["lfo_depth", "stereo_motion", "slow_modulation"]},
+    {"index": 4, "name": "CHAOS", "range": [0.0, 1.0], "default": 0.18, "targets": ["probability", "smooth_random", "feedback_variance"]},
+    {"index": 5, "name": "TONE", "range": [0.0, 1.0], "default": 0.42, "targets": ["filter_center", "harmonic_balance", "brightness"]},
+    {"index": 6, "name": "TEXTURE", "range": [0.0, 1.0], "default": 0.36, "targets": ["wavefold", "noise", "degradation"]},
+    {"index": 7, "name": "DECAY", "range": [0.0, 1.0], "default": 0.30, "targets": ["amp_decay", "feedback_persistence", "release"]},
+    {"index": 8, "name": "SPACE", "range": [0.0, 1.0], "default": 0.28, "targets": ["delay_mix", "diffusion", "stereo_depth"]}
+  ],
+  "modes": {
+    "DAY": {"ENERGY": 0.48, "DENSITY": 0.36, "MOTION": 0.26, "CHAOS": 0.10, "TONE": 0.62, "TEXTURE": 0.28, "DECAY": 0.22, "SPACE": 0.20},
+    "NIGHT": {"ENERGY": 0.68, "DENSITY": 0.52, "MOTION": 0.46, "CHAOS": 0.30, "TONE": 0.32, "TEXTURE": 0.58, "DECAY": 0.48, "SPACE": 0.44},
+    "WORLD": {"ENERGY": 0.56, "DENSITY": 0.48, "MOTION": 0.40, "CHAOS": 0.34, "TONE": 0.50, "TEXTURE": 0.50, "DECAY": 0.34, "SPACE": 0.36}
+  },
+  "safety": {
+    "feedback_ceiling": 0.72,
+    "output_ceiling_dbfs": -0.8,
+    "snapshot_gain_jump_db_max": 6.0,
+    "safe_state": {"ENERGY": 0.30, "DENSITY": 0.25, "MOTION": 0.18, "CHAOS": 0.05, "TONE": 0.45, "TEXTURE": 0.20, "DECAY": 0.18, "SPACE": 0.12}
+  }
+}
