@@ -55,6 +55,7 @@ function dispatch(c) {
     case "list_returns": return {returns:listReturns()};
     case "inspect_device_chain": return inspectDeviceChain(c);
     case "inspect_device_parameters": return inspectDeviceParameters(c);
+    case "inspect_device_parameters_page": return inspectDeviceParametersPage(c);
     case "inspect_clip": return inspectClip(c);
     case "inspect_master": return inspectMaster();
     case "capture_mixer_snapshot": return captureMixerSnapshot(c);
@@ -125,6 +126,7 @@ function createReturnTrack(c){var desired=String(c.name).trim().toLowerCase(),so
 function setClipLoop(c){var clip=api(clipPath(c));clip.set("loop_start",Number(c.start));clip.set("loop_end",Number(c.start)+Number(c.length));clip.set("looping",c.enabled?1:0);return {track:track(c),clip:c.clip,start:c.start,length:c.length,enabled:!!c.enabled};}
 
 function findDevice(path,name){var count=api(path).getcount("devices"),matches=[];for(var i=0;i<count;i++)if(nameOf(api(path+" devices "+i))===String(name))matches.push(i);if(matches.length===0)throw new Error("Device not found: "+name);if(matches.length>1)throw new Error("Ambiguous duplicate device name: "+name+"; use unique Live device names");var index=matches[0];return {index:index,path:path+" devices "+index};}
+function deviceAtIndex(path,index){var i=integer(index,"device_index"),count=api(path).getcount("devices");if(i>=count)throw new Error("Device index out of range: "+i+" >= "+count);var devicePath=path+" devices "+i,d=api(devicePath);return {index:i,path:devicePath,name:nameOf(d),api:d};}
 function findParameter(devicePath,name){var count=api(devicePath).getcount("parameters"),matches=[];for(var i=0;i<count;i++){var p=api(devicePath+" parameters "+i);if(nameOf(p)===String(name))matches.push(i);}if(matches.length===0)throw new Error("Parameter not found: "+name);if(matches.length>1)throw new Error("Ambiguous duplicate parameter name: "+name);var index=matches[0],target=api(devicePath+" parameters "+index);return {index:index,path:devicePath+" parameters "+index,api:target};}
 function setParameterOnPath(path,device,parameter,value){var d=findDevice(path,device),p=findParameter(d.path,parameter),meta=parameterMeta(p.api,p.index);if(!meta.is_enabled)throw new Error("Parameter is disabled: "+parameter);var readback=setNormalized(p.path,value);return {device_index:d.index,parameter_index:p.index,parameter:meta,readback:readback};}
 function setDeviceParameter(c){var ti=track(c),r=setParameterOnPath("live_set tracks "+ti,c.device,c.parameter,c.value);return {track:ti,device:c.device,parameter:c.parameter,value:c.value,device_index:r.device_index,parameter_index:r.parameter_index,readback:r.readback};}
@@ -145,6 +147,15 @@ function inspectChainAtPath(path){var count=api(path).getcount("devices"),out=[]
 function inspectDeviceChain(c){var path=targetPath(c);return {target_kind:c.target_kind,target_path:path,devices:inspectChainAtPath(path)};}
 function inspectParametersAtPath(path,device){var d=findDevice(path,device),count=api(d.path).getcount("parameters"),out=[],names={};for(var i=0;i<count;i++){var meta=parameterMeta(api(d.path+" parameters "+i),i);names[meta.name]=(names[meta.name]||0)+1;out.push(meta);}for(var j=0;j<out.length;j++)out[j].duplicate_name=names[out[j].name]>1;return {device_index:d.index,device:device,parameters:out};}
 function inspectDeviceParameters(c){var path=targetPath(c),result=inspectParametersAtPath(path,c.device);result.target_kind=c.target_kind;result.target_path=path;return result;}
+function inspectDeviceParametersPage(c){
+    var path=targetPath(c),d=deviceAtIndex(path,c.device_index),total=d.api.getcount("parameters"),start=integer(c.start,"start"),limit=integer(c.limit,"limit");
+    if(limit<1||limit>24)throw new Error("limit must be between 1 and 24");
+    if(start>total)throw new Error("start out of range: "+start+" > "+total);
+    var end=Math.min(total,start+limit),out=[],names={};
+    for(var n=0;n<total;n++){var pn=nameOf(api(d.path+" parameters "+n));names[pn]=(names[pn]||0)+1;}
+    for(var i=start;i<end;i++){var meta=parameterMeta(api(d.path+" parameters "+i),i);meta.duplicate_name=names[meta.name]>1;out.push(meta);}
+    return {target_kind:c.target_kind,target_path:path,device_index:d.index,device:d.name,parameter_count:total,start:start,limit:limit,next_start:end<total?end:null,parameters:out};
+}
 function inspectClip(c){var slot=api(clipSlotPath(c)),has=!!Number(scalar(slot.get("has_clip"))),result={track:track(c),clip:c.clip,has_clip:has};if(has){var clip=api(clipPath(c));result.name=nameOf(clip);result.color=Number(safeGet(clip,"color",0));result.looping=!!Number(safeGet(clip,"looping",0));result.loop_start=Number(safeGet(clip,"loop_start",0));result.loop_end=Number(safeGet(clip,"loop_end",0));result.length=Number(safeGet(clip,"length",0));}return result;}
 
 function captureMixerSnapshot(c){var id=c.snapshot_id||generatedSnapshotId("mixer"),snapshot={kind:"mixer",tracks:listTracks(),returns:listReturns(),master:inspectMaster()};snapshots[id]=snapshot;return {snapshot_id:id,track_count:snapshot.tracks.length,return_count:snapshot.returns.length};}
