@@ -18,6 +18,7 @@ from .commands import COMMANDS
 
 APP_NAME = "Ableton AI Control Bridge"
 HEALTH_URL = "http://127.0.0.1:8765/health"
+READ_ONLY_COMPAT_COMMANDS = {"inspect_device_parameters_page"}
 
 
 def application_dir() -> Path:
@@ -33,9 +34,40 @@ def data_dir() -> Path:
     return path
 
 
+def _migrate_config(config: dict) -> tuple[dict, bool]:
+    """Apply narrow backwards-compatible migrations without widening custom write access."""
+    allow = config.get("allow")
+    if not isinstance(allow, list):
+        return config, False
+
+    allowed = {str(item).strip() for item in allow if str(item).strip()}
+    changed = False
+
+    # Existing 0.7.0 installations already allowed device inspection but predated
+    # the paged read-only variant. Add only that read-only companion command.
+    if {"inspect_device_chain", "inspect_device_parameters"}.issubset(allowed):
+        for command in READ_ONLY_COMPAT_COMMANDS:
+            if command in COMMANDS and command not in allowed:
+                allowed.add(command)
+                changed = True
+
+    if changed:
+        config = dict(config)
+        config["allow"] = sorted(allowed)
+    return config, changed
+
+
 def ensure_config() -> Path:
     path = data_dir() / "config.json"
     if path.exists():
+        try:
+            config = json.loads(path.read_text(encoding="utf-8-sig"))
+        except (OSError, json.JSONDecodeError):
+            return path
+        if isinstance(config, dict):
+            config, changed = _migrate_config(config)
+            if changed:
+                path.write_text(json.dumps(config, indent=2), encoding="utf-8")
         return path
     config = {
         "host": "127.0.0.1",
