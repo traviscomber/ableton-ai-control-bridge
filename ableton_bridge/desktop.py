@@ -11,8 +11,9 @@ import urllib.error
 import urllib.request
 import webbrowser
 from pathlib import Path
-from tkinter import BOTH, END, LEFT, RIGHT, X, Button, Frame, Label, StringVar, Text, Tk
+from tkinter import BOTH, END, LEFT, RIGHT, X, Button, Frame, Label, StringVar, Text, Tk, filedialog
 
+from .audio_analysis import analyze_wav, compare_analyses
 from .commands import COMMANDS
 
 
@@ -100,8 +101,8 @@ class BridgeDesktop:
     def __init__(self) -> None:
         self.root = Tk()
         self.root.title(APP_NAME)
-        self.root.geometry("820x540")
-        self.root.minsize(700, 460)
+        self.root.geometry("860x610")
+        self.root.minsize(740, 520)
         self.root.configure(bg="#080a0b")
         self.process: subprocess.Popen[str] | None = None
         self.status = StringVar(value="Bridge stopped")
@@ -116,7 +117,7 @@ class BridgeDesktop:
         header.pack(fill=X)
         Label(header, text="TITAN · ABLETON PRODUCTION SYSTEM", fg="#61f2b5", bg="#080a0b",
               font=("Segoe UI", 18, "bold")).pack(anchor="w")
-        Label(header, text="Live 11 bridge · 12 stems · 4 returns · canonical production console",
+        Label(header, text="Live 11 bridge · exact-index processing · render analysis · controlled A/B",
               fg="#88949b", bg="#080a0b", font=("Segoe UI", 10)).pack(anchor="w", pady=(5, 0))
 
         state = Frame(self.root, bg="#14191c", padx=20, pady=16)
@@ -137,6 +138,15 @@ class BridgeDesktop:
         Button(actions, text="DIAGNOSTICS", command=self.diagnose, bg="#20262a", fg="#ffffff",
                activebackground="#30383d", relief="flat", padx=18, pady=10).pack(side=RIGHT)
 
+        production = Frame(self.root, bg="#080a0b", padx=26)
+        production.pack(fill=X, pady=(10, 0))
+        Button(production, text="ANALYZE WAV", command=self.analyze_audio, bg="#20262a", fg="#ffffff",
+               activebackground="#30383d", relief="flat", padx=18, pady=9).pack(side=LEFT)
+        Button(production, text="A/B WAV", command=self.compare_audio, bg="#20262a", fg="#ffffff",
+               activebackground="#30383d", relief="flat", padx=18, pady=9).pack(side=LEFT, padx=8)
+        Label(production, text="Offline measurements: peak · RMS · crest · headroom · stereo · spectral ratios",
+              fg="#66727a", bg="#080a0b", font=("Segoe UI", 9)).pack(side=LEFT, padx=12)
+
         Label(self.root, text="Activity", fg="#d7dde1", bg="#080a0b",
               font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=26, pady=(20, 6))
         self.log = Text(self.root, bg="#0b0e10", fg="#b9c5cb", insertbackground="#ffffff",
@@ -144,6 +154,7 @@ class BridgeDesktop:
         self.log.pack(fill=BOTH, expand=True, padx=26, pady=(0, 20))
         self.write("Configuration: " + str(self.config_path))
         self.write("Start the bridge, keep the Receiver loaded in Live 11, then open Titan Console.")
+        self.write("Render analysis is offline/read-only and never changes the Live Set.")
 
     def write(self, message: str) -> None:
         stamp = time.strftime("%H:%M:%S")
@@ -203,6 +214,80 @@ class BridgeDesktop:
         self.write(f"OK: bridge v{health.get('version')} · {len(health.get('allowed_commands', []))} commands")
         self.write("OK: local authentication enabled" if health.get("authentication_required") else "WARNING: authentication disabled")
         self.write("OK: Ableton acknowledged commands" if health.get("max_receiver_seen") else "WAITING: no ACK from Ableton Receiver")
+
+    def analyze_audio(self) -> None:
+        selected = filedialog.askopenfilename(
+            title="Select PCM WAV render",
+            filetypes=[("WAV audio", "*.wav"), ("All files", "*.*")],
+        )
+        if not selected:
+            return
+        threading.Thread(target=self._analyze_audio_worker, args=(Path(selected),), daemon=True).start()
+
+    def _analysis_dir(self) -> Path:
+        path = data_dir() / "audio-analysis"
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def _analyze_audio_worker(self, path: Path) -> None:
+        try:
+            self.write(f"ANALYZE: {path.name}")
+            result = analyze_wav(path)
+            output = self._analysis_dir() / f"{path.stem}-analysis.json"
+            output.write_text(json.dumps(result, indent=2), encoding="utf-8")
+            level = result["level"]
+            spectral = result["spectral_balance"]
+            correlation = result.get("stereo", {}).get("correlation")
+            self.write(
+                "RESULT: peak={:.2f} dBFS · RMS={:.2f} dBFS · crest={:.2f} dB · headroom={:.2f} dB".format(
+                    level["peak_dbfs"], level["rms_dbfs"], level["crest_db"], level["headroom_db"]
+                )
+            )
+            if correlation is not None:
+                self.write(f"STEREO: correlation={correlation:.3f}")
+            self.write(
+                "SPECTRAL: low={:.3f} · mid={:.3f} · high={:.3f}".format(
+                    spectral["low_end_ratio"], spectral["mid_ratio"], spectral["high_ratio"]
+                )
+            )
+            self.write(f"SAVED: {output}")
+            self.write("LIMIT: LUFS and true peak are not measured by this first offline layer.")
+        except Exception as exc:
+            self.write(f"AUDIO ANALYSIS ERROR: {exc}")
+
+    def compare_audio(self) -> None:
+        before = filedialog.askopenfilename(
+            title="Select BEFORE WAV",
+            filetypes=[("WAV audio", "*.wav"), ("All files", "*.*")],
+        )
+        if not before:
+            return
+        after = filedialog.askopenfilename(
+            title="Select AFTER WAV",
+            filetypes=[("WAV audio", "*.wav"), ("All files", "*.*")],
+        )
+        if not after:
+            return
+        threading.Thread(target=self._compare_audio_worker, args=(Path(before), Path(after)), daemon=True).start()
+
+    def _compare_audio_worker(self, before: Path, after: Path) -> None:
+        try:
+            self.write(f"A/B: {before.name} -> {after.name}")
+            result = compare_analyses(analyze_wav(before), analyze_wav(after))
+            output = self._analysis_dir() / f"{before.stem}__VS__{after.stem}.json"
+            output.write_text(json.dumps(result, indent=2), encoding="utf-8")
+            delta = result["delta"]
+            self.write(
+                "DELTA: peak={:+.2f} dB · RMS={:+.2f} dB · crest={:+.2f} dB · low={:+.3f} · high={:+.3f}".format(
+                    delta["peak_db"], delta["rms_db"], delta["crest_db"], delta["low_end_ratio"], delta["high_ratio"]
+                )
+            )
+            warnings = result.get("warnings", [])
+            self.write("A/B WARNINGS: " + (", ".join(warnings) if warnings else "none from measured safety checks"))
+            self.write("A/B DECISION: review required; listen in context before accepting processing.")
+            self.write(f"SAVED: {output}")
+        except Exception as exc:
+            self.write(f"A/B ERROR: {exc}")
 
     def _monitor(self) -> None:
         while True:
