@@ -26,7 +26,11 @@ COMMANDS: dict[str, CommandSpec] = {
     "create_audio_track": CommandSpec("create_audio_track", ("name",), ("index", "track_ref")),
     "create_midi_track": CommandSpec("create_midi_track", ("name",), ("index", "track_ref")),
     "arm_track": CommandSpec("arm_track", ("armed",), ("track", "track_ref")),
-    "set_device_parameter": CommandSpec("set_device_parameter", ("device", "parameter", "value"), ("track", "track_ref", "track_name")),
+    "set_device_parameter": CommandSpec(
+        "set_device_parameter",
+        ("value",),
+        ("device", "parameter", "device_index", "parameter_index", "track", "track_ref", "track_name"),
+    ),
     "start_playback": CommandSpec("start_playback", ()),
     "stop_playback": CommandSpec("stop_playback", ()),
     "set_time_signature": CommandSpec("set_time_signature", ("numerator", "denominator")),
@@ -48,7 +52,11 @@ COMMANDS: dict[str, CommandSpec] = {
     "set_return_volume": CommandSpec("set_return_volume", ("volume",), ("return", "return_name")),
     "set_return_pan": CommandSpec("set_return_pan", ("pan",), ("return", "return_name")),
     "set_track_send": CommandSpec("set_track_send", ("amount",), ("track", "track_ref", "track_name", "return", "return_name")),
-    "set_return_device_parameter": CommandSpec("set_return_device_parameter", ("device", "parameter", "value"), ("return", "return_name")),
+    "set_return_device_parameter": CommandSpec(
+        "set_return_device_parameter",
+        ("value",),
+        ("device", "parameter", "device_index", "parameter_index", "return", "return_name"),
+    ),
     "load_native_device": CommandSpec("load_native_device", ("target_kind", "target_name", "category", "device")),
     "get_live_state": CommandSpec("get_live_state", ()),
     "list_tracks": CommandSpec("list_tracks", ()),
@@ -68,7 +76,11 @@ COMMANDS: dict[str, CommandSpec] = {
     "capture_device_snapshot": CommandSpec("capture_device_snapshot", ("target_kind", "device"), ("snapshot_id", "track", "track_ref", "track_name", "return", "return_name")),
     "restore_device_snapshot": CommandSpec("restore_device_snapshot", ("snapshot_id",)),
     "set_master_volume": CommandSpec("set_master_volume", ("volume",)),
-    "set_master_device_parameter": CommandSpec("set_master_device_parameter", ("device", "parameter", "value")),
+    "set_master_device_parameter": CommandSpec(
+        "set_master_device_parameter",
+        ("value",),
+        ("device", "parameter", "device_index", "parameter_index"),
+    ),
     "set_master_device_enabled": CommandSpec("set_master_device_enabled", ("device", "enabled")),
 }
 
@@ -237,9 +249,18 @@ def _validate_ranges(payload: dict[str, Any]) -> None:
 
 
 def _validate_device_parameter(payload: dict[str, Any]) -> None:
-    for field in ("device", "parameter"):
-        if not isinstance(payload[field], str) or not payload[field].strip():
-            raise CommandError(f"{field} must be a non-empty string.")
+    named = ("device" in payload) or ("parameter" in payload)
+    indexed = ("device_index" in payload) or ("parameter_index" in payload)
+    if named == indexed:
+        raise CommandError("Provide exactly one parameter target mode: device+parameter or device_index+parameter_index.")
+    if named:
+        for field in ("device", "parameter"):
+            if field not in payload or not isinstance(payload[field], str) or not payload[field].strip():
+                raise CommandError(f"{field} must be a non-empty string.")
+    else:
+        for field in ("device_index", "parameter_index"):
+            if field not in payload or not isinstance(payload[field], int) or payload[field] < 0:
+                raise CommandError(f"{field} must be a zero-based integer.")
     if not 0 <= _number(payload["value"], "value") <= 1:
         raise CommandError("value must be between 0 and 1.")
 
